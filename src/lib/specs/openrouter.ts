@@ -222,14 +222,18 @@ Rules: brand as sold in India (e.g. Samsung, Apple, Redmi, Poco, iQOO); name wit
 
 type AskResult = { ok: true; content: string; model: string } | { ok: false; error: string };
 
+/** OpenRouter accepts at most three entries in the "models" fallback list. */
+const MAX_FALLBACKS = 3;
+
 /**
  * One request to a free model on OpenRouter, with the JSON schema and a zero
  * price cap. `models` lists the fallbacks OpenRouter itself switches to when
- * a model is down or rate limited.
+ * a model is down or rate limited (the first three are sent).
  */
-async function askFreeModel(system: string, user: string, maxTokens: number, models: string[]): Promise<AskResult> {
+async function askFreeModel(system: string, user: string, maxTokens: number, wanted: string[]): Promise<AskResult> {
   const apiKey = process.env.OPENROUTER_API_KEY?.trim();
   if (!apiKey) return { ok: false, error: `The free AI is off (no OPENROUTER_API_KEY). ${PASTE_INSTEAD}` };
+  const models = wanted.slice(0, MAX_FALLBACKS);
   const model = models[0];
   let response: Response;
   try {

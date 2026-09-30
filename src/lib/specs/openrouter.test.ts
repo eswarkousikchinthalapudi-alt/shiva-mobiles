@@ -135,7 +135,9 @@ describe("lookupWithAi", () => {
     expect(new Headers(init.headers).get("authorization")).toBe("Bearer sk-or-test");
     const body = JSON.parse(String(init.body));
     expect(body.model).toBe("nvidia/nemotron-3-super-120b-a12b:free");
-    expect(body.models).toEqual(FREE_MODELS);
+    // OpenRouter allows at most three fallback models per request.
+    expect(body.models).toEqual(FREE_MODELS.slice(0, 3));
+    expect(body.models.length).toBeLessThanOrEqual(3);
     expect(body.plugins).toBeUndefined();
     expect(body.provider.max_price).toEqual({ prompt: 0, completion: 0, request: 0, image: 0 });
     expect(body.response_format.type).toBe("json_schema");
@@ -155,7 +157,7 @@ describe("lookupWithAi", () => {
     expect(fetchMock).toHaveBeenCalledTimes(2);
     const second = JSON.parse(String((fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1].body));
     expect(second.model).toBe(FREE_MODELS[1]);
-    expect(second.models).toEqual(FREE_MODELS.slice(1));
+    expect(second.models).toEqual(FREE_MODELS.slice(1, 4));
   });
 
   it("gives up after three unreadable answers and names the models", async () => {
