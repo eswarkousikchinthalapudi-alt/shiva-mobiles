@@ -1,0 +1,59 @@
+# One small server runs everything: the website, its Postgres database and
+# Caddy (which gets the HTTPS certificate automatically).
+#
+#   1. cp .env.example .env   and fill it in
+#   2. docker compose up -d --build
+#
+# See README.md, "Put it online".
+
+services:
+  db:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: shiva
+      POSTGRES_USER: shiva
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shiva -d shiva"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    # No "ports:" on purpose: the database is reachable only by the app.
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    environment:
+      DATABASE_URL: postgres://shiva:${POSTGRES_PASSWORD}@db:5432/shiva
+      # Apply new database changes when a new version starts.
+      MIGRATE_ON_START: "1"
+      # Caddy (below) sends the visitor's real address in this header.
+      TRUSTED_IP_HEADER: x-real-ip
+
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - app
+    ports:
+      - "80:80"
+      - "443:443"
+      - "443:443/udp"
+    environment:
+      SITE_DOMAIN: ${SITE_DOMAIN:?Set SITE_DOMAIN in .env}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data
+      - caddy-config:/config
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

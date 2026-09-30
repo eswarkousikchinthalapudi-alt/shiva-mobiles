@@ -1,26 +1,250 @@
 @import "tailwindcss";
 
+/*
+ * Shiva Mobiles design tokens.
+ * Neela (Shiva's blue) is the brand colour; Haldi (turmeric) is used only for
+ * price tags so prices always stand out. Leaf green means "checked / passed".
+ * Every colour is a CSS variable so dark mode is a variable swap.
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --bg: #eef1f7;
+  --surface: #ffffff;
+  --surface-2: #f5f7fc;
+  --surface-3: #e7ebf4;
+  --fg: #0f1733;
+  --muted: #54607e;
+  --faint: #8a93ad;
+  --line: #d7dcea;
+  --line-strong: #b9c1d6;
+  --brand: #1f2a7c;
+  --brand-hover: #18206a;
+  --brand-fg: #ffffff;
+  --brand-soft: #e5e8f8;
+  --brand-ink: #1f2a7c;
+  --tag: #f5b301;
+  --tag-fg: #2b1d00;
+  --tag-soft: #fff3c7;
+  --ok: #0a7a50;
+  --ok-soft: #dff2e8;
+  --warn: #8f5a00;
+  --warn-soft: #fdefcf;
+  --bad: #b3321f;
+  --bad-soft: #fbe5e1;
+  --focus: #3b5bfd;
+  color-scheme: light;
 }
 
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
+/* Screen only, so printed bills always use the light colours. */
+@media screen and (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --bg: #0a0f22;
+    --surface: #121935;
+    --surface-2: #19213f;
+    --surface-3: #222b4f;
+    --fg: #eef1fb;
+    --muted: #a9b1cc;
+    --faint: #7c86a6;
+    --line: #283258;
+    --line-strong: #3a4674;
+    --brand: #9aa8ff;
+    --brand-hover: #b4bfff;
+    --brand-fg: #0a0f22;
+    --brand-soft: #1e285c;
+    --brand-ink: #b8c2ff;
+    --tag: #f7c338;
+    --tag-fg: #2b1d00;
+    --tag-soft: #3a2f0c;
+    --ok: #4fd29b;
+    --ok-soft: #0f3527;
+    --warn: #f3bf57;
+    --warn-soft: #3a2c0b;
+    --bad: #ff8a78;
+    --bad-soft: #43180f;
+    --focus: #9aa8ff;
+    color-scheme: dark;
   }
 }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+@theme inline {
+  --color-bg: var(--bg);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-3: var(--surface-3);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-brand: var(--brand);
+  --color-brand-hover: var(--brand-hover);
+  --color-brand-fg: var(--brand-fg);
+  --color-brand-soft: var(--brand-soft);
+  --color-brand-ink: var(--brand-ink);
+  --color-tag: var(--tag);
+  --color-tag-fg: var(--tag-fg);
+  --color-tag-soft: var(--tag-soft);
+  --color-ok: var(--ok);
+  --color-ok-soft: var(--ok-soft);
+  --color-warn: var(--warn);
+  --color-warn-soft: var(--warn-soft);
+  --color-bad: var(--bad);
+  --color-bad-soft: var(--bad-soft);
+
+  --font-sans: var(--font-inter-rupee), var(--font-inter), var(--font-telugu), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage-rupee), var(--font-bricolage), var(--font-telugu), ui-sans-serif, system-ui, sans-serif;
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    text-rendering: optimizeLegibility;
+  }
+  body {
+    background: var(--bg);
+    color: var(--fg);
+    font-family: var(--font-sans);
+    font-feature-settings: "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+  }
+  :lang(te) body {
+    line-height: 1.65;
+  }
+  h1,
+  h2,
+  h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.015em;
+    text-wrap: balance;
+  }
+  :lang(te) h1,
+  :lang(te) h2,
+  :lang(te) h3 {
+    letter-spacing: 0;
+    line-height: 1.35;
+  }
+  p {
+    text-wrap: pretty;
+  }
+  :focus-visible {
+    outline: 3px solid var(--focus);
+    outline-offset: 2px;
+    border-radius: 6px;
+  }
+  ::selection {
+    background: var(--tag);
+    color: var(--tag-fg);
+  }
+  input,
+  select,
+  textarea,
+  button {
+    font: inherit;
+  }
+  [hidden] {
+    display: none !important;
+  }
+}
+
+@layer components {
+  /* The price tag: turmeric sticker with a punched hole, like the ones on the shop counter.
+     The hole is cut with a mask so whatever is behind the tag shows through it. */
+  .price-tag {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    padding: 0.3rem 0.75rem 0.3rem 1.35rem;
+    background: var(--tag);
+    color: var(--tag-fg);
+    font-family: var(--font-display);
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    line-height: 1.1;
+    white-space: nowrap;
+    clip-path: polygon(0.7rem 0, 100% 0, 100% 100%, 0.7rem 100%, 0 50%);
+    border-radius: 0 0.45rem 0.45rem 0;
+    -webkit-mask: radial-gradient(circle at 0.81rem 50%, transparent 0.19rem, #000 calc(0.19rem + 0.6px));
+    mask: radial-gradient(circle at 0.81rem 50%, transparent 0.19rem, #000 calc(0.19rem + 0.6px));
+  }
+  .price-tag-lg {
+    padding: 0.45rem 1.1rem 0.45rem 1.75rem;
+    font-size: 1.65rem;
+    clip-path: polygon(0.95rem 0, 100% 0, 100% 100%, 0.95rem 100%, 0 50%);
+    -webkit-mask: radial-gradient(circle at 1.05rem 50%, transparent 0.25rem, #000 calc(0.25rem + 0.6px));
+    mask: radial-gradient(circle at 1.05rem 50%, transparent 0.25rem, #000 calc(0.25rem + 0.6px));
+  }
+
+  .tabular {
+    font-variant-numeric: tabular-nums;
+  }
+
+  .scroll-row {
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: 1rem;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+  .scroll-row::-webkit-scrollbar {
+    display: none;
+  }
+  .scroll-row > * {
+    scroll-snap-align: start;
+  }
+
+  /* Bottom sheet built on <dialog>. */
+  dialog.sheet {
+    margin: auto auto 0;
+    width: 100%;
+    max-width: 40rem;
+    max-height: 88dvh;
+    padding: 0;
+    border: 0;
+    border-radius: 1.5rem 1.5rem 0 0;
+    background: var(--surface);
+    color: var(--fg);
+  }
+  dialog.sheet::backdrop {
+    background: rgb(10 15 34 / 0.55);
+  }
+  @media (min-width: 768px) {
+    dialog.sheet {
+      margin: auto;
+      border-radius: 1.5rem;
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    dialog.sheet[open] {
+      animation: sheet-up 220ms cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+  }
+  @keyframes sheet-up {
+    from {
+      transform: translateY(24px);
+      opacity: 0.6;
+    }
+    to {
+      transform: none;
+      opacity: 1;
+    }
+  }
+}
+
+.print-only {
+  display: none;
+}
+
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block !important;
+  }
+  body {
+    background: #fff;
+    color: #000;
+  }
+  @page {
+    margin: 12mm;
+  }
 }

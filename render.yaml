@@ -1,0 +1,50 @@
+# Render Blueprint: the website plus its Postgres database, in Singapore
+# (Render's closest region to India). In Render: New → Blueprint → pick this
+# repository → Apply. See README, "Quick online preview on Render".
+#
+# The free plans are for trying the site: the website sleeps after 15 minutes
+# without visitors (the next visit takes about a minute), and Render deletes a
+# free database 30 days after it was made (plus 14 days' grace) unless you
+# move it to a paid plan. For the real shop, change both plans to paid ones.
+
+databases:
+  - name: shiva-mobiles-db
+    plan: free
+    region: singapore
+    databaseName: shiva
+    user: shiva
+    # Only the website can reach the database.
+    ipAllowList: []
+
+services:
+  - type: web
+    runtime: node
+    name: shiva-mobiles
+    plan: free
+    region: singapore
+    buildCommand: npm ci --include=dev && npm run build && cp -r .next/static .next/standalone/.next/ && cp -r public .next/standalone/
+    startCommand: node .next/standalone/server.js
+    healthCheckPath: /robots.txt
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: HOSTNAME
+        value: 0.0.0.0
+      - key: NEXT_TELEMETRY_DISABLED
+        value: "1"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: shiva-mobiles-db
+          property: connectionString
+      # Creates the tables on the first start and applies changes in new versions.
+      - key: MIGRATE_ON_START
+        value: "1"
+      # Render made these for you: see them under the service's Environment tab.
+      # Keep a copy of APP_SECRET somewhere safe; SETUP_TOKEN is used once at /admin/setup.
+      - key: APP_SECRET
+        generateValue: true
+      - key: SETUP_TOKEN
+        generateValue: true
+      # Render sits behind Cloudflare, which sends the visitor's real address in these headers.
+      - key: TRUSTED_IP_HEADER
+        value: true-client-ip,cf-connecting-ip

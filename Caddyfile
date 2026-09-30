@@ -1,0 +1,16 @@
+# Caddy gets and renews the HTTPS certificate for SITE_DOMAIN by itself.
+{$SITE_DOMAIN} {
+	encode zstd gzip
+	request_body {
+		max_size 16MB
+	}
+	reverse_proxy app:3000 {
+		# The app uses this for rate limits and the activity log.
+		header_up X-Real-IP {remote_host}
+	}
+}
+
+# Send www to the main address.
+www.{$SITE_DOMAIN} {
+	redir https://{$SITE_DOMAIN}{uri} permanent
+}
