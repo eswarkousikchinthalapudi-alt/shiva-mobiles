@@ -2,7 +2,6 @@
 
 import { useState } from "react";
 import type { ModelInput } from "@/lib/admin/catalog";
-import type { SpecsResult } from "@/lib/specs-ai";
 import { buttonClass } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import { Alert, Field, inputClass } from "./ui";
@@ -12,29 +11,6 @@ function num(value: string): number | null {
   if (!cleaned) return null;
   const n = Number(cleaned);
   return Number.isFinite(n) ? n : null;
-}
-
-export function specsToModelInput(specs: SpecsResult): ModelInput {
-  return {
-    brand: specs.brand,
-    name: specs.name,
-    aliases: specs.aliases,
-    os: specs.os,
-    launchYear: specs.launch_year,
-    chipset: specs.chipset,
-    performance: specs.performance_tier,
-    displayInches: specs.display_inches,
-    displayType: specs.display_type,
-    refreshHz: specs.refresh_hz,
-    mainCameraMp: specs.main_camera_mp,
-    cameraSummary: specs.camera_summary,
-    frontCameraMp: specs.front_camera_mp,
-    batteryMah: specs.battery_mah,
-    chargingW: specs.charging_w,
-    has5g: specs.has_5g,
-    variants: specs.variants.map((v) => ({ ramGb: v.ram_gb, storageGb: v.storage_gb, launchPriceInr: v.launch_price_inr })),
-    sourceUrls: specs.source_urls,
-  };
 }
 
 export const EMPTY_MODEL: ModelInput = {
@@ -73,7 +49,7 @@ export function ModelEditor({
   onSave: () => void;
   onCancel?: () => void;
   saving: boolean;
-  source: "ai" | "manual" | "edit";
+  source: "ai" | "gsmarena" | "manual" | "edit";
   saveLabel?: string;
   /** Extra controls shown above the save button (e.g. "mark as checked"). */
   extra?: React.ReactNode;
@@ -122,7 +98,11 @@ export function ModelEditor({
     <div className={cn("space-y-4", source !== "edit" && "mt-4 rounded-2xl border border-line-strong bg-surface-2 p-4")}>
       {source === "ai" ? (
         <Alert live tone="warn">
-          Found online. Please check these specs before saving, especially the prices.
+          Found online by AI. Please check these specs before saving, especially the prices.
+        </Alert>
+      ) : source === "gsmarena" ? (
+        <Alert live tone="ok">
+          Filled from GSMArena. Check the details, remove variants not sold in India, and add the launch prices if you know them.
         </Alert>
       ) : source === "manual" ? (
         <p className="text-sm text-muted">Fill what you know. You can edit the specs later in the catalog.</p>

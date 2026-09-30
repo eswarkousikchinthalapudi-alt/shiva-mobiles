@@ -141,15 +141,12 @@ export async function adminGetListing(id: string) {
     .from(listingStats)
     .where(eq(listingStats.listingId, id));
   const s = statRows[0];
-  // The encrypted IMEI never leaves the server; only the last 4 digits do.
-  const { imeiEnc: _imeiEnc, ...safeListing } = row.listing;
-  void _imeiEnc;
   return {
-    listing: safeListing,
+    listing: row.listing,
     model: row.model,
     name: fullModelName(row.model.brand, row.model.name),
     photos: photos as AdminPhoto[],
-    // Only what the page needs; the encrypted token and IMEI stay on the server.
+    // Only what the page needs; the encrypted bill token stays on the server.
     sale: sale[0]
       ? {
           id: sale[0].id,

@@ -10,6 +10,7 @@ import { MediaError, processPrivatePhoto, storeMedia } from "@/lib/media";
 import { estimatePrice } from "@/lib/pricing";
 import { cleanAnswers, isValidAnswers, type SellAnswers } from "@/lib/sell-quiz";
 import { normalizeIndianMobile } from "@/lib/format";
+import { maskImeis } from "@/lib/imei";
 import { randomToken, sha256Hex } from "@/lib/security/crypto";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { getRequestInfo } from "@/lib/security/request";
@@ -61,11 +62,11 @@ export type SubmitState =
 
 const detailsSchema = z.object({
   modelId: z.string().uuid().nullable(),
-  modelText: z.string().trim().min(2).max(80),
+  modelText: z.string().trim().min(2).max(80).transform(maskImeis),
   storageGb: z.number().int().min(8).max(2048).nullable(),
   name: z.string().trim().min(2).max(60),
   phone: z.string().trim().max(20),
-  area: z.string().trim().min(2).max(80),
+  area: z.string().trim().min(2).max(80).transform(maskImeis),
   pincode: z
     .string()
     .trim()

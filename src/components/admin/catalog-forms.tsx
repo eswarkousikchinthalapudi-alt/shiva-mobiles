@@ -1,14 +1,15 @@
 "use client";
 
-import { Loader2, Sparkles } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { deleteModelAction, updateModelAction } from "@/app/admin/(panel)/catalog/actions";
-import { createModelAction, lookupSpecsAction } from "@/app/admin/(panel)/phones/actions";
+import { createModelAction } from "@/app/admin/(panel)/phones/actions";
 import type { ModelInput } from "@/lib/admin/catalog";
+import { looksLikeLink } from "@/lib/specs/link";
 import { buttonClass } from "@/components/ui/button";
 import { Alert, Field, inputClass } from "./ui";
-import { EMPTY_MODEL, ModelEditor, specsToModelInput } from "./model-editor";
+import { EMPTY_MODEL, ModelEditor } from "./model-editor";
+import { SpecsLookup, type LookupSource } from "./specs-lookup";
 
 export function EditModelForm({
   id,
@@ -90,49 +91,27 @@ export function EditModelForm({
   );
 }
 
-export function NewModelForm({ specsEnabled }: { specsEnabled: boolean }) {
+export function NewModelForm({ aiEnabled }: { aiEnabled: boolean }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [editor, setEditor] = useState<{ value: ModelInput; source: "ai" | "manual" } | null>(null);
+  const [editor, setEditor] = useState<{ value: ModelInput; source: LookupSource | "manual" } | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [looking, startLookup] = useTransition();
   const [saving, startSave] = useTransition();
 
   return (
     <div className="space-y-4">
       {!editor ? (
-        <>
-          <Field label="Model name or number" htmlFor="new-model-q" hint="e.g. Galaxy A55, SM-A556E or iPhone 14 Plus">
-            <input id="new-model-q" className={inputClass} value={query} onChange={(e) => setQuery(e.target.value)} maxLength={60} autoComplete="off" />
+        <div>
+          <Field label="GSMArena link, or model name or number" htmlFor="new-model-q" hint="e.g. a gsmarena.com link, Galaxy A55, SM-A556E or iPhone 14 Plus">
+            <input id="new-model-q" className={inputClass} value={query} onChange={(e) => setQuery(e.target.value)} maxLength={500} autoComplete="off" />
           </Field>
-          <div className="flex flex-wrap gap-2">
-            {specsEnabled ? (
-              <button
-                type="button"
-                disabled={query.trim().length < 2 || looking}
-                onClick={() =>
-                  startLookup(async () => {
-                    setError(null);
-                    const res = await lookupSpecsAction(query);
-                    if (res.ok && res.data) setEditor({ value: specsToModelInput(res.data), source: "ai" });
-                    else if (!res.ok) setError(res.error);
-                  })
-                }
-                className={buttonClass("primary", "md")}
-              >
-                {looking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
-                {looking ? "Searching the internet…" : "Get specs from the internet"}
-              </button>
-            ) : null}
-            <button
-              type="button"
-              onClick={() => setEditor({ value: { ...EMPTY_MODEL, name: query.trim() }, source: "manual" })}
-              className={buttonClass("secondary", "md")}
-            >
-              Add by hand
-            </button>
-          </div>
-        </>
+          <SpecsLookup
+            query={query}
+            aiEnabled={aiEnabled}
+            onFound={(value, source) => (setError(null), setEditor({ value, source }))}
+            onManual={() => (setError(null), setEditor({ value: { ...EMPTY_MODEL, name: looksLikeLink(query) ? "" : query.trim() }, source: "manual" }))}
+          />
+        </div>
       ) : null}
       {error ? (
         <Alert live tone="bad">

@@ -1,21 +1,22 @@
 "use client";
 
-import { ArrowLeft, ArrowRight, Camera, ImagePlus, Loader2, Search, Sparkles, Trash2 } from "lucide-react";
+import { ArrowLeft, ArrowRight, Camera, ImagePlus, Loader2, Search, Trash2 } from "lucide-react";
 import { useEffect, useRef, useState, useTransition } from "react";
-import { createModelAction, lookupSpecsAction, saveListingAction, searchModelsAction, type ListingInput } from "@/app/admin/(panel)/phones/actions";
+import { createModelAction, saveListingAction, searchModelsAction, type ListingInput } from "@/app/admin/(panel)/phones/actions";
 import type { ModelOption, ModelInput } from "@/lib/admin/catalog";
 import { formatInr } from "@/lib/format";
-import { normalizeImei } from "@/lib/imei";
+import { looksLikeLink } from "@/lib/specs/link";
 import { PHONE_TESTS, allPassed, type TestKey, type TestResults } from "@/lib/phone-tests";
 import { SHOP_TAGS, type ShopTag } from "@/lib/tags";
 import { buttonClass } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import { Alert, Card, Field, Group, inputClass } from "./ui";
-import { EMPTY_MODEL, ModelEditor, specsToModelInput } from "./model-editor";
+import { EMPTY_MODEL, ModelEditor } from "./model-editor";
+import { SpecsLookup, type LookupSource } from "./specs-lookup";
 
 type Photo = { smId: string; mdId: string; lgId: string; width: number; height: number };
 
-export type PhoneFormValues = Omit<ListingInput, "id" | "modelId" | "publish" | "imei" | "sourceRequestId">;
+export type PhoneFormValues = Omit<ListingInput, "id" | "modelId" | "publish" | "sourceRequestId">;
 
 const TEST_LABELS: Record<TestKey, string> = {
   display: "Display",
@@ -219,22 +220,23 @@ function PhotoManager({ photos, onChange }: { photos: Photo[]; onChange: (update
 }
 
 // ---------------------------------------------------------------------------
-// Model picker with catalog search, AI specs lookup and manual entry
+// Model picker: your catalog first, then specs from a GSMArena link, the AI lookup, or by hand
 // ---------------------------------------------------------------------------
 
-function ModelPicker({ model, onPick, specsEnabled }: { model: ModelOption | null; onPick: (model: ModelOption | null) => void; specsEnabled: boolean }) {
+function ModelPicker({ model, onPick, aiEnabled }: { model: ModelOption | null; onPick: (model: ModelOption | null) => void; aiEnabled: boolean }) {
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ModelOption[]>([]);
   const [searching, setSearching] = useState(false);
-  const [editor, setEditor] = useState<{ value: ModelInput; source: "ai" | "manual" } | null>(null);
-  const [lookupError, setLookupError] = useState<string | null>(null);
-  const [looking, startLookup] = useTransition();
+  const [editor, setEditor] = useState<{ value: ModelInput; source: LookupSource | "manual" } | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
+  const isLink = looksLikeLink(query);
 
   useEffect(() => {
     if (model) return;
     const q = query.trim();
     const handle = window.setTimeout(async () => {
+      if (looksLikeLink(q)) return setResults([]);
       setSearching(true);
       try {
         setResults(await searchModelsAction(q));
@@ -270,14 +272,14 @@ function ModelPicker({ model, onPick, specsEnabled }: { model: ModelOption | nul
         <input
           id="model-search"
           className={cn(inputClass, "pl-11")}
-          placeholder="Type model name or number, e.g. A54 or SM-A546E"
+          placeholder="Model name or number, or paste a GSMArena link"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           autoComplete="off"
         />
         {searching ? <Loader2 className="absolute right-3.5 top-1/2 h-5 w-5 -translate-y-1/2 animate-spin text-faint" aria-hidden /> : null}
       </div>
-      {results.length ? (
+      {results.length && !isLink ? (
         <ul className="mt-2 divide-y divide-line overflow-hidden rounded-2xl border border-line" role="listbox" aria-label="Matching models">
           {results.map((m) => (
             <li key={m.id}>
@@ -297,45 +299,21 @@ function ModelPicker({ model, onPick, specsEnabled }: { model: ModelOption | nul
             </li>
           ))}
         </ul>
-      ) : query.trim().length >= 2 && !searching ? (
+      ) : query.trim().length >= 2 && !searching && !isLink ? (
         <p className="mt-2 text-sm text-muted">No match in your catalog yet.</p>
       ) : null}
 
       {!editor ? (
-        <div className="mt-3 flex flex-wrap gap-2">
-          {specsEnabled ? (
-            <button
-              type="button"
-              disabled={query.trim().length < 2 || looking}
-              onClick={() =>
-                startLookup(async () => {
-                  setLookupError(null);
-                  const result = await lookupSpecsAction(query);
-                  if (result.ok && result.data) setEditor({ value: specsToModelInput(result.data), source: "ai" });
-                  else if (!result.ok) setLookupError(result.error);
-                })
-              }
-              className={buttonClass("primary", "md")}
-            >
-              {looking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
-              {looking ? "Searching the internet…" : "Get specs from the internet"}
-            </button>
-          ) : null}
-          <button
-            type="button"
-            onClick={() => setEditor({ value: { ...EMPTY_MODEL, name: query.trim() }, source: "manual" })}
-            className={buttonClass("secondary", "md")}
-          >
-            Add by hand
-          </button>
-        </div>
+        <SpecsLookup
+          query={query}
+          aiEnabled={aiEnabled}
+          onFound={(value, source) => (setSaveError(null), setEditor({ value, source }))}
+          onManual={() => (setSaveError(null), setEditor({ value: { ...EMPTY_MODEL, name: isLink ? "" : query.trim() }, source: "manual" }))}
+        />
       ) : null}
-      {!specsEnabled && !editor ? (
-        <p className="mt-2 text-xs text-muted">Automatic specs lookup is off. Add ANTHROPIC_API_KEY on the server to switch it on.</p>
-      ) : null}
-      {lookupError ? (
+      {saveError ? (
         <Alert live tone="bad" className="mt-3">
-          {lookupError}
+          {saveError}
         </Alert>
       ) : null}
       {editor ? (
@@ -352,7 +330,7 @@ function ModelPicker({ model, onPick, specsEnabled }: { model: ModelOption | nul
                 setEditor(null);
                 onPick(result.data);
               } else if (!result.ok) {
-                setLookupError(result.error);
+                setSaveError(result.error);
               }
             })
           }
@@ -371,9 +349,8 @@ export function PhoneForm({
   initial,
   initialModel,
   isOwner,
-  specsEnabled,
+  aiEnabled,
   defaultWarranty,
-  savedImeiLast4,
   status,
   sourceRequestId,
 }: {
@@ -381,15 +358,13 @@ export function PhoneForm({
   initial: PhoneFormValues | null;
   initialModel: ModelOption | null;
   isOwner: boolean;
-  specsEnabled: boolean;
+  aiEnabled: boolean;
   defaultWarranty: number;
-  savedImeiLast4: string | null;
   status: string | null;
   sourceRequestId?: string | null;
 }) {
   const [model, setModel] = useState<ModelOption | null>(initialModel);
   const [v, setV] = useState<PhoneFormValues>(initial ?? emptyValues(defaultWarranty));
-  const [imei, setImei] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
   const set = (patch: Partial<PhoneFormValues>) => setV((prev) => ({ ...prev, ...patch }));
@@ -430,7 +405,6 @@ export function PhoneForm({
     set({ tests: next });
   };
 
-  const imeiValid = imei.trim() === "" || normalizeImei(imei) !== null;
   const margin = isOwner && v.costInr && v.priceInr ? v.priceInr - v.costInr : null;
 
   const submit = (publish: boolean) => {
@@ -438,13 +412,11 @@ export function PhoneForm({
     if (!model) return setError("Pick the phone model first.");
     if (!v.storageGb) return setError("Pick the storage.");
     if (!v.priceInr) return setError("Enter the selling price.");
-    if (!imeiValid) return setError("IMEI should be 15 digits. Dial *#06# on the phone to see it.");
     startTransition(async () => {
       const result = await saveListingAction({
         ...v,
         id: listingId,
         modelId: model.id,
-        imei: imei.trim() ? imei.trim() : null,
         publish,
         sourceRequestId: sourceRequestId ?? null,
       });
@@ -463,7 +435,7 @@ export function PhoneForm({
       className="space-y-4"
     >
       <Card title="1. Which phone?">
-        <ModelPicker model={model} onPick={pickModel} specsEnabled={specsEnabled} />
+        <ModelPicker model={model} onPick={pickModel} aiEnabled={aiEnabled} />
       </Card>
 
       <Card title="2. Variant and colour">
@@ -687,35 +659,19 @@ export function PhoneForm({
       <Card title="8. IMEI check">
         <p className="mb-3 text-sm text-muted">
           The law requires checking every used phone&apos;s IMEI in the government database before buying or selling it. Dial *#06# on the phone to see the
-          IMEI. It is stored locked (encrypted) and never shown on the website.
+          IMEI, then send <span className="font-mono">KYM &lt;IMEI&gt;</span> by SMS to 14422 (or use the Sanchar Saathi app). Only the result is saved here,
+          never the IMEI number.
         </p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field
-            label={savedImeiLast4 ? `IMEI (saved: ending ${savedImeiLast4})` : "IMEI number"}
-            htmlFor="imei"
-            error={!imeiValid ? "This is not a valid 15-digit IMEI." : null}
-            hint={savedImeiLast4 ? "Leave empty to keep the saved IMEI." : undefined}
-          >
-            <input
-              id="imei"
-              className={cn(inputClass, "font-mono tracking-wider")}
-              inputMode="numeric"
-              autoComplete="off"
-              maxLength={20}
-              value={imei}
-              onChange={(e) => setImei(e.target.value)}
-            />
-          </Field>
-          <Field label="Check reference (optional)" htmlFor="imeiRef" hint="Receipt or reference number from the check.">
-            <input
-              id="imeiRef"
-              className={inputClass}
-              maxLength={60}
-              value={v.imeiCheckRef ?? ""}
-              onChange={(e) => set({ imeiCheckRef: e.target.value || null })}
-            />
-          </Field>
-        </div>
+        <Field label="Check reference (optional)" htmlFor="imeiRef" hint="Receipt or reference number from the check. Don't type the IMEI here.">
+          <input
+            id="imeiRef"
+            className={cn(inputClass, "sm:max-w-sm")}
+            maxLength={60}
+            autoComplete="off"
+            value={v.imeiCheckRef ?? ""}
+            onChange={(e) => set({ imeiCheckRef: e.target.value || null })}
+          />
+        </Field>
         <Group label="Result of the check" className="mt-4">
           <div className="grid gap-2 sm:grid-cols-3">
             {(
@@ -818,7 +774,7 @@ export function PhoneForm({
           )}
         </button>
       </div>
-      {isPublished ? null : <p className="text-center text-xs text-muted">To publish, add at least one photo, the IMEI, and a clear IMEI check.</p>}
+      {isPublished ? null : <p className="text-center text-xs text-muted">To publish, add at least one photo and mark the IMEI check as clear.</p>}
     </form>
   );
 }

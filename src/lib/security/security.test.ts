@@ -5,21 +5,21 @@ import { ipFromHeaders } from "./request";
 
 describe("encryption", () => {
   it("round-trips a value", async () => {
-    const token = await encryptString("490154203237518", "imei");
+    const token = await encryptString("sample-bill-token-123", "bill-token");
     expect(token.startsWith("v1.")).toBe(true);
-    expect(token).not.toContain("490154203237518");
-    expect(await decryptString(token, "imei")).toBe("490154203237518");
+    expect(token).not.toContain("sample-bill-token-123");
+    expect(await decryptString(token, "bill-token")).toBe("sample-bill-token-123");
   });
 
   it("uses a new random IV every time", async () => {
-    expect(await encryptString("same", "imei")).not.toBe(await encryptString("same", "imei"));
+    expect(await encryptString("same", "bill-token")).not.toBe(await encryptString("same", "bill-token"));
   });
 
   it("refuses a tampered value or the wrong purpose", async () => {
     const token = await encryptString("secret", "totp");
     const tampered = token.slice(0, -2) + (token.endsWith("A") ? "BB" : "AA");
     await expect(decryptString(tampered, "totp")).rejects.toThrow();
-    await expect(decryptString(token, "imei")).rejects.toThrow();
+    await expect(decryptString(token, "bill-token")).rejects.toThrow();
   });
 
   it("makes stable keyed hashes that differ by purpose", async () => {

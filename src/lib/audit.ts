@@ -4,7 +4,7 @@ import type { AdminUser } from "@/lib/auth/dal";
 import { getRequestInfo } from "@/lib/security/request";
 
 /**
- * Writes one line to the activity log. Never put secrets, full IMEIs or
+ * Writes one line to the activity log. Never put secrets, IMEI numbers or
  * customer ID numbers in `details`.
  */
 export async function audit(

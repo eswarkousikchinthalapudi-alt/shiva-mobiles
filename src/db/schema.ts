@@ -182,7 +182,7 @@ export const media = pgTable("media", {
 // ---------------------------------------------------------------------------
 
 export type ModelVariant = { ramGb: number | null; storageGb: number; launchPriceInr: number | null };
-export type SpecSource = "seed" | "ai" | "manual";
+export type SpecSource = "seed" | "ai" | "gsmarena" | "manual";
 
 export const phoneModels = pgTable(
   "phone_models",
@@ -274,10 +274,13 @@ export const listings = pgTable(
       .notNull()
       .default(sql`'{}'::text[]`),
     featured: boolean("featured").notNull().default(false),
-    imeiEnc: text("imei_enc"),
-    imeiLast4: text("imei_last4"),
+    /**
+     * Result of the government IMEI check. The IMEI number itself is never
+     * stored: staff check it on the phone (*#06#) and record only the result.
+     */
     imeiStatus: text("imei_status").$type<ImeiStatus>().notNull().default("pending"),
     imeiCheckedAt: timestamp("imei_checked_at", { withTimezone: true }),
+    /** Optional receipt or reference number from the check (not the IMEI) */
     imeiCheckRef: text("imei_check_ref"),
     status: text("status").$type<ListingStatus>().notNull().default("draft"),
     publishedAt: timestamp("published_at", { withTimezone: true }),
@@ -348,7 +351,6 @@ export type SaleItem = {
   hasCharger: boolean;
   hasBill: boolean;
   brandWarrantyUntil: string | null;
-  imeiLast4: string | null;
 };
 
 export const sales = pgTable(
@@ -370,8 +372,6 @@ export const sales = pgTable(
     warrantyMonths: smallint("warranty_months").notNull(),
     warrantyUntil: date("warranty_until").notNull(),
     item: jsonb("item").$type<SaleItem>().notNull(),
-    /** Copy of the phone's encrypted IMEI at the time of sale */
-    imeiEnc: text("imei_enc"),
     /** Set when the owner cancels a sale; the bill stays, marked cancelled */
     voidedAt: timestamp("voided_at", { withTimezone: true }),
     voidedBy: uuid("voided_by").references(() => adminUsers.id, { onDelete: "set null" }),

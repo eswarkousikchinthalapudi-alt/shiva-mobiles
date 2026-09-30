@@ -99,11 +99,6 @@ export default async function BillPage({ params }: { params: Promise<{ token: st
                   .join(" · ")}
               </span>
             </Row>
-            {item.imeiLast4 ? (
-              <Row label={t.bill.imei}>
-                <span className="tabular">{t.bill.imeiEnding(item.imeiLast4)}</span>
-              </Row>
-            ) : null}
             {item.batteryHealth ? <Row label={t.phone.batteryHealth}>{item.batteryHealth}%</Row> : null}
             <Row label={t.bill.comesWith}>{extras.length ? extras.join(", ") : t.phone.nothingElse}</Row>
             <Row label={t.phone.code}>{item.code}</Row>

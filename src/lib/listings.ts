@@ -20,7 +20,7 @@ export function fullModelName(brand: string, name: string) {
   return `${brand} ${name}`;
 }
 
-/** Columns that are safe to show the public. Never add cost, IMEI or check refs here. */
+/** Columns that are safe to show the public. Never add cost or check refs here. */
 const publicColumns = {
   id: listings.id,
   code: listings.code,

@@ -9,7 +9,7 @@ import { Alert, PageHeader, TabNav } from "@/components/admin/ui";
 
 export const metadata = { title: "Phone catalog" };
 
-const SOURCE: Record<string, string> = { seed: "Sample data", ai: "From the internet", manual: "Added by hand" };
+const SOURCE: Record<string, string> = { seed: "Sample data", ai: "Found by AI", gsmarena: "From GSMArena", manual: "Added by hand" };
 
 export default async function CatalogPage({ searchParams }: { searchParams: Promise<{ q?: string; show?: string; deleted?: string }> }) {
   await requireAdmin();

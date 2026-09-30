@@ -8,7 +8,7 @@ import { requireAdmin } from "@/lib/auth/dal";
 import { displayMobile, formatDate, formatInr } from "@/lib/format";
 import { getShopSettings, getSiteUrl } from "@/lib/settings";
 import { shareDataByCode } from "@/lib/share";
-import { specsLookupEnabled } from "@/lib/specs-ai";
+import { aiLookupEnabled } from "@/lib/specs";
 import { Alert, Card, PageHeader, StatusPill } from "@/components/admin/ui";
 import { ListingStatusActions, SaleFollowUp } from "@/components/admin/listing-actions";
 import { PhoneForm, type PhoneFormValues } from "@/components/admin/phone-form";
@@ -195,9 +195,8 @@ export default async function EditPhonePage({ params, searchParams }: { params: 
             initial={initial}
             initialModel={modelOption}
             isOwner={user.role === "owner"}
-            specsEnabled={specsLookupEnabled()}
+            aiEnabled={aiLookupEnabled()}
             defaultWarranty={settings.defaultWarrantyMonths}
-            savedImeiLast4={listing.imeiLast4}
             status={listing.status}
           />
         </>

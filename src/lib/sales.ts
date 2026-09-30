@@ -31,7 +31,6 @@ export function saleItemFrom(
     hasCharger: boolean;
     hasBill: boolean;
     brandWarrantyUntil: string | null;
-    imeiLast4: string | null;
   },
   brand: string,
   modelName: string,
@@ -48,6 +47,5 @@ export function saleItemFrom(
     hasCharger: listing.hasCharger,
     hasBill: listing.hasBill,
     brandWarrantyUntil: listing.brandWarrantyUntil,
-    imeiLast4: listing.imeiLast4,
   };
 }

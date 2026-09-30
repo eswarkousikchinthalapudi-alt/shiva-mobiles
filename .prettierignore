@@ -5,3 +5,6 @@ drizzle
 package-lock.json
 public
 assets
+
+# Saved web pages used as test data; keep them exactly as the site sends them
+src/lib/specs/fixtures/

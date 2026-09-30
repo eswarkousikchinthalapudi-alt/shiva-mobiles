@@ -20,9 +20,9 @@ The public site works in **English and Telugu**. The admin panel is in English.
 
 **For the shop (admin panel at `/admin`)**
 
-- Add a phone in a few minutes. Type the model name or number and the specs can be filled from the internet (you check them before saving). Photos are straightened, watermarked with the shop name and made small for fast loading.
+- Add a phone in a few minutes. Paste the phone's GSMArena link (free) or type its name or model number (AI lookup, optional) and the specs fill in for you to check before saving. Photos are straightened, watermarked with the shop name and made small for fast loading.
 - **Share to WhatsApp:** a ready poster image, the photos, and captions in English and Telugu, to share to chats, groups or Status.
-- IMEI stored encrypted, with the government-check result. A phone can't go live until the IMEI is marked clear and it has a photo.
+- IMEI numbers are never stored. Staff check the IMEI in the government database and record only the result. A phone can't go live until the check is marked clear and it has a photo.
 - Mark sold → digital bill and warranty card, sent on WhatsApp in one tap. Later, ask for a Google review.
 - Sell requests: new → contacted → offer → pickup → bought → "Add to stock". The seller sees each update on their link.
 - Notify list with phones in stock that match each request.
@@ -104,7 +104,7 @@ The simplest long-term setup is **one small Linux server with Docker**. It runs 
    cp .env.example .env
    nano .env
    ```
-   Set `APP_SECRET`, `SITE_URL`, `SITE_DOMAIN`, `POSTGRES_PASSWORD` and `SETUP_TOKEN`. The file explains each one. **Save `APP_SECRET` somewhere safe off the server** — without it, saved IMEIs and 2-step logins can't be read.
+   Set `APP_SECRET`, `SITE_URL`, `SITE_DOMAIN`, `POSTGRES_PASSWORD` and `SETUP_TOKEN`. The file explains each one. **Save `APP_SECRET` somewhere safe off the server** — without it, bill links and 2-step logins stop working.
 6. **Open the firewall** for web traffic only:
    ```bash
    ufw allow OpenSSH && ufw allow 80 && ufw allow 443 && ufw enable
@@ -171,13 +171,13 @@ Never let visitors reach the Node server directly; without a proxy in front, the
 
 | Setting                                      | Needed?     | What it is                                                                                                                 |
 | -------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------- |
-| `APP_SECRET`                                 | Yes         | 32+ random characters. Encrypts IMEIs, 2-step keys and bill links.                                                         |
+| `APP_SECRET`                                 | Yes         | 32+ random characters. Encrypts 2-step keys and bill links.                                                                |
 | `DATABASE_URL`                               | Yes*        | Postgres connection string (*Docker Compose sets it)                                                                       |
 | `SITE_URL`                                   | Yes*        | Website address for WhatsApp posts, bills and the sitemap (*on Render, the onrender.com address is used until you set one) |
 | `SETUP_TOKEN`                                | Once        | Allows creating the first owner at `/admin/setup`                                                                          |
 | `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Recommended | Cloudflare Turnstile "I am human" check on public forms (free)                                                             |
-| `ANTHROPIC_API_KEY`                          | Recommended | Fills phone specs from the internet when adding a new model                                                                |
-| `SPECS_AI_MODEL`                             | No          | Model for the specs lookup (default `claude-sonnet-5`)                                                                     |
+| `OPENROUTER_API_KEY`                         | No          | Turns on searching specs by phone name or model number (AI with web search, about ₹2 per new model)                        |
+| `OPENROUTER_MODEL`                           | No          | OpenRouter model for that search (default `~google/gemini-flash-latest`)                                                   |
 | `TRUSTED_IP_HEADER`, `TRUSTED_PROXY_HOPS`    | Depends     | See "Visitor IP addresses". Several headers can be listed, comma-separated                                                 |
 | `MIGRATE_ON_START`                           | No          | `1` applies database migrations when the server starts                                                                     |
 | `CRON_SECRET`                                | No          | Lets an outside scheduler call `POST /api/cron/cleanup`                                                                    |
@@ -190,9 +190,14 @@ Without Turnstile keys the public forms still have a hidden spam trap and rate l
 
 ## Using the admin panel
 
-**Add a phone** — tap **+**. Type the model name or number (for example `A54` or `SM-A546E`). If it's new, tap **Get specs from the internet**, check the specs, and save. Then pick the variant, colour and grade, fill in battery health and the 12 tests, what comes in the box, the price, and (owner only) what you paid. Add 4 or more photos on a plain background. Enter the IMEI (dial `*#06#`), check it in the government database, mark the result, and tap **Publish**.
+**Add a phone** — tap **+**. Type the model name or number (for example `A54` or `SM-A546E`). If it's not in your catalog yet, get the specs one of two ways:
 
-> Since 22 October 2025, the Telecommunications (Telecom Cyber Security) Amendment Rules, 2025 require dealers in used phones to check each phone's IMEI against the government database before buying or selling it. Do the check on the official portal, then record the result and reference here. Check the current rules with the Department of Telecommunications.
+- **Free:** tap **Search on GSMArena**, open the phone's page, copy its link, paste it in the same box and tap **Get specs from this link**.
+- **By name:** tap **Find specs online** (only shown when `OPENROUTER_API_KEY` is set).
+
+Check the specs, remove variants not sold in India, add launch prices if you know them, and save. The model is then in your catalog for next time. Then pick the variant, colour and grade, fill in battery health and the 12 tests, what comes in the box, the price, and (owner only) what you paid. Add 4 or more photos on a plain background. Check the IMEI (dial `*#06#`, then SMS `KYM <IMEI>` to 14422 or use the Sanchar Saathi app), mark the result, and tap **Publish**. The IMEI number itself is never saved; if one is typed into a notes box by mistake, the form asks you to remove it.
+
+> Since 22 October 2025, the Telecommunications (Telecom Cyber Security) Amendment Rules, 2025 require dealers in used phones to check each phone's IMEI against the government database before buying or selling it. Do the check on the official portal, then record the result (and any reference number, never the IMEI) here. Check the current rules with the Department of Telecommunications.
 
 **Share to WhatsApp** — on the phone's page, tap **Share to WhatsApp**. The poster and photos open in WhatsApp's share screen; the caption is copied, so long-press and paste it. Links carry `?src=wa`, so the phone's page shows how many visits came from WhatsApp.
 
@@ -213,7 +218,9 @@ Without Turnstile keys the public forms still have a hidden spam trap and rate l
 - Admin accounts only (customers don't need accounts). Passwords hashed with PBKDF2 (600,000 rounds). 2-step login is required for everyone, codes can't be reused, and there are one-time recovery codes.
 - Login sessions are stored in the database, end after 3 days unused (14 days at most), and end everywhere when a password changes. Devices that logged in before get their own attempt limit, so strangers' wrong tries can't lock the owner out.
 - Owner-only areas: buying costs, margins, settings, team, activity log, cancelling sales, deleting.
-- IMEIs and 2-step keys are encrypted (AES-256-GCM). Bills show only the last 4 IMEI digits.
+- IMEI numbers are never stored: only the result of the government check is saved. Staff notes that contain an IMEI are refused, and IMEIs typed by customers are removed.
+- 2-step keys and bill links are encrypted (AES-256-GCM).
+- The specs reader only fetches GSMArena phone pages, rebuilt from the pasted link, with a timeout, size limit and rate limit. It never uses GSMArena's search.
 - Every form is checked on the server. Public forms have rate limits, a spam trap and optional Turnstile. Photos are checked, re-encoded and stripped of location data.
 - Strict Content Security Policy with a fresh nonce per page, HSTS, no framing, no-store and noindex on admin pages.
 - An activity log records logins, changes, sales and exports.

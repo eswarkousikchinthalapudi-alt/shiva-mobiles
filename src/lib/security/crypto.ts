@@ -2,7 +2,7 @@
  * Crypto helpers built on Web Crypto so they run in any modern JS runtime.
  *
  * APP_SECRET (32+ random characters) is the root secret. It is used to
- * derive the key that encrypts IMEIs and 2FA secrets at rest, and to hash
+ * derive the keys that encrypt 2FA secrets and bill links at rest, and to hash
  * values we must look up but never store in plain form.
  */
 import fs from "node:fs";

@@ -1,6 +1,6 @@
 "use server";
 
-import { and, eq, inArray, isNull, notInArray, or } from "drizzle-orm";
+import { and, eq, inArray, isNull, or } from "drizzle-orm";
 import { redirect } from "next/navigation";
 import { z } from "zod";
 import { getDb, schema } from "@/db";
@@ -10,16 +10,15 @@ import { audit } from "@/lib/audit";
 import { addMonthsToDate, istDateString } from "@/lib/dates";
 import { createModel, findDuplicateModel, getModelOption, modelInputSchema, searchCatalog, type ModelInput, type ModelOption } from "@/lib/admin/catalog";
 import { getAdminOrNull } from "@/lib/auth/dal";
-import { normalizeImei } from "@/lib/imei";
+import { fieldWithImei, IMEI_NOT_SAVED } from "@/lib/imei";
 import { deleteMedia } from "@/lib/media";
 import { PHONE_TESTS } from "@/lib/phone-tests";
 import { fullModelName } from "@/lib/listings";
 import { formatInr, normalizeIndianMobile, slugify } from "@/lib/format";
-import { decryptString, encryptString } from "@/lib/security/crypto";
 import { newBillToken, saleItemFrom } from "@/lib/sales";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { getShopSettings, getSiteUrl } from "@/lib/settings";
-import { lookupSpecs, type SpecsResult } from "@/lib/specs-ai";
+import { looksLikeLink, lookupSpecs, type SpecsFound } from "@/lib/specs";
 import { SHOP_TAGS } from "@/lib/tags";
 
 export type ActionResult<T = undefined> = { ok: true; data?: T } | { ok: false; error: string };
@@ -36,17 +35,26 @@ export async function searchModelsAction(query: string): Promise<ModelOption[]> 
   return searchCatalog(String(query ?? "").slice(0, 60), 8);
 }
 
-export async function lookupSpecsAction(query: string): Promise<ActionResult<SpecsResult>> {
+/** A pasted GSMArena link is read directly; a name or model number goes to the AI lookup (when it's switched on). */
+export async function lookupSpecsAction(query: string): Promise<ActionResult<SpecsFound>> {
   const admin = await getAdminOrNull();
   if (!admin) return { ok: false, error: "Please log in again." };
-  const limit = await rateLimit(`specs:${admin.id}`, 40, 24 * 3600);
-  if (!limit.allowed) return { ok: false, error: "Daily limit for specs lookups reached. Try again tomorrow or add specs by hand." };
-  const result = await lookupSpecs(String(query ?? ""));
-  await audit(admin, result.ok ? "specs_lookup" : "specs_lookup_failed", { details: { query: String(query).slice(0, 80) } });
-  return result.ok ? { ok: true, data: result.specs } : { ok: false, error: result.error };
+  const text = String(query ?? "").slice(0, 500);
+  const isLink = looksLikeLink(text);
+  // AI lookups cost money, so they get a daily cap; GSMArena gets a gentle pace so we never hammer their site.
+  const limit = isLink ? await rateLimit(`specs-link:${admin.id}`, 60, 24 * 3600) : await rateLimit(`specs:${admin.id}`, 40, 24 * 3600);
+  if (!limit.allowed) return { ok: false, error: "Daily limit for specs lookups reached. Try again tomorrow or add the specs by hand." };
+  if (isLink && !(await rateLimit("specs-link:all", 20, 10 * 60)).allowed) {
+    return { ok: false, error: "Lots of GSMArena lookups in the last few minutes. Wait a little and try again." };
+  }
+  const result = await lookupSpecs(text);
+  await audit(admin, result.ok ? "specs_lookup" : "specs_lookup_failed", {
+    details: { query: text.slice(0, 120), source: isLink ? "gsmarena" : "ai" },
+  });
+  return result;
 }
 
-export async function createModelAction(input: ModelInput, source: "ai" | "manual"): Promise<ActionResult<ModelOption>> {
+export async function createModelAction(input: ModelInput, source: "ai" | "gsmarena" | "manual"): Promise<ActionResult<ModelOption>> {
   const admin = await getAdminOrNull();
   if (!admin) return { ok: false, error: "Please log in again." };
   const parsed = modelInputSchema.safeParse(input);
@@ -56,7 +64,7 @@ export async function createModelAction(input: ModelInput, source: "ai" | "manua
     const existing = await getModelOption(duplicate.id);
     if (existing) return { ok: true, data: existing };
   }
-  const id = await createModel(parsed.data, source === "ai" ? "ai" : "manual");
+  const id = await createModel(parsed.data, source === "ai" || source === "gsmarena" ? source : "manual");
   await audit(admin, "model_created", { entity: "phone_model", entityId: id, details: { brand: parsed.data.brand, name: parsed.data.name, source } });
   const option = await getModelOption(id);
   return option ? { ok: true, data: option } : { ok: false, error: "Could not save the model." };
@@ -103,7 +111,6 @@ const listingSchema = z.object({
   notesEn: z.string().trim().max(1000),
   notesTe: z.string().trim().max(1000),
   featured: z.boolean(),
-  imei: z.string().trim().max(24).nullable(),
   imeiStatus: z.enum(["pending", "clear", "blocked"]),
   imeiCheckRef: z.string().trim().max(60).nullable(),
   photos: z.array(photoSchema).max(12),
@@ -132,30 +139,19 @@ export async function saveListingAction(input: ListingInput): Promise<ActionResu
   if (existing?.status === "sold")
     return { ok: false, error: "This phone is sold, so its details are locked and the bill stays correct. Cancel the sale first if something must change." };
 
-  // IMEI
-  let imeiEnc = existing?.imeiEnc ?? null;
-  let imeiLast4 = existing?.imeiLast4 ?? null;
-  if (data.imei) {
-    const imei = normalizeImei(data.imei);
-    if (!imei) return { ok: false, error: "IMEI should be 15 digits. Dial *#06# on the phone to see it." };
-    imeiEnc = await encryptString(imei, "imei");
-    imeiLast4 = imei.slice(-4);
-    const duplicate = await db
-      .select({ id: schema.listings.id, code: schema.listings.code, enc: schema.listings.imeiEnc })
-      .from(schema.listings)
-      .where(and(eq(schema.listings.imeiLast4, imeiLast4), data.id ? notInArray(schema.listings.id, [data.id]) : undefined));
-    for (const row of duplicate) {
-      if (!row.enc) continue;
-      if ((await decryptString(row.enc, "imei").catch(() => "")) === imei) {
-        return { ok: false, error: `This IMEI is already saved on phone ${row.code}.` };
-      }
-    }
-  }
+  // IMEI check: only the result is saved, never the IMEI number.
+  const imeiField = fieldWithImei({
+    "Check reference": data.imeiCheckRef,
+    "Notes for customers": data.notesEn,
+    "Notes in Telugu": data.notesTe,
+    "Battery note": data.batteryNote,
+    Colour: data.color,
+  });
+  if (imeiField) return { ok: false, error: `${imeiField} ${IMEI_NOT_SAVED}` };
   if (data.imeiStatus === "blocked" && data.publish) {
     return { ok: false, error: "This phone's IMEI is blocked. It can't be listed for sale." };
   }
   if (data.publish) {
-    if (!imeiEnc) return { ok: false, error: "Enter the IMEI before publishing." };
     if (data.imeiStatus !== "clear") return { ok: false, error: "Check the IMEI in the government database and mark it clear before publishing." };
     if (data.photos.length === 0) return { ok: false, error: "Add at least one photo before publishing." };
   }
@@ -183,7 +179,8 @@ export async function saveListingAction(input: ListingInput): Promise<ActionResu
 
   const now = new Date();
   const isOwner = admin.role === "owner";
-  const imeiChecked = data.imeiStatus !== "pending" && (data.imeiStatus !== existing?.imeiStatus || Boolean(data.imei));
+  // The check date moves when the result changes, and is cleared when it goes back to "not checked".
+  const imeiCheckedAt = data.imeiStatus === "pending" ? null : data.imeiStatus !== existing?.imeiStatus ? now : (existing?.imeiCheckedAt ?? now);
 
   const common = {
     modelId: data.modelId,
@@ -205,11 +202,9 @@ export async function saveListingAction(input: ListingInput): Promise<ActionResu
     notesTe: data.notesTe,
     shopTags: data.shopTags,
     featured: data.featured,
-    imeiEnc,
-    imeiLast4,
     imeiStatus: data.imeiStatus,
     imeiCheckRef: data.imeiCheckRef || null,
-    ...(imeiChecked ? { imeiCheckedAt: now } : {}),
+    imeiCheckedAt,
     updatedAt: now,
   };
 
@@ -226,7 +221,6 @@ export async function saveListingAction(input: ListingInput): Promise<ActionResu
         costInr: isOwner ? data.costInr : null,
         status: data.publish ? "available" : "draft",
         publishedAt: data.publish ? now : null,
-        imeiCheckedAt: data.imeiStatus !== "pending" ? now : null,
         sourceRequestId: data.sourceRequestId ?? null,
         createdBy: admin.id,
       })
@@ -272,7 +266,6 @@ export async function saveListingAction(input: ListingInput): Promise<ActionResu
     if (existing.priceInr !== data.priceInr) changes.price = `${existing.priceInr} → ${data.priceInr}`;
     if (existing.status !== status) changes.status = `${existing.status} → ${status}`;
     if (existing.imeiStatus !== data.imeiStatus) changes.imei = `${existing.imeiStatus} → ${data.imeiStatus}`;
-    if (data.imei) changes.imeiUpdated = true;
     await audit(admin, "listing_updated", { entity: "listing", entityId: listingId, details: { code: existing.code, ...changes } });
   }
 
@@ -393,7 +386,6 @@ export async function markSoldAction(input: z.infer<typeof saleSchema>): Promise
           warrantyMonths: data.warrantyMonths,
           warrantyUntil,
           item: saleItemFrom(row.listing, row.brand, row.modelName),
-          imeiEnc: row.listing.imeiEnc,
           createdBy: admin.id,
         })
         .returning({ id: schema.sales.id });

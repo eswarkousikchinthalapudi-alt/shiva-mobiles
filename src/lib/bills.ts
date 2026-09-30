@@ -21,8 +21,8 @@ export type Bill = {
 
 /**
  * Looks up a bill by the private token in its link. Everything shown comes
- * from the copy saved at the time of sale. The full IMEI is not included:
- * the page shows only the last digits, in case a link is forwarded.
+ * from the copy saved at the time of sale. IMEI numbers are never stored,
+ * so a forwarded link can't reveal one.
  */
 export async function billByToken(token: string): Promise<Bill | null> {
   if (!/^[A-Za-z0-9_-]{20,64}$/.test(token)) return null;

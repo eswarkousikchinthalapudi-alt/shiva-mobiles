@@ -4,7 +4,7 @@ import { getDb, schema } from "@/db";
 import { getModelOption } from "@/lib/admin/catalog";
 import { requireAdmin } from "@/lib/auth/dal";
 import { getShopSettings } from "@/lib/settings";
-import { specsLookupEnabled } from "@/lib/specs-ai";
+import { aiLookupEnabled } from "@/lib/specs";
 import { allPassed } from "@/lib/phone-tests";
 import { Alert, PageHeader } from "@/components/admin/ui";
 import { PhoneForm, type PhoneFormValues } from "@/components/admin/phone-form";
@@ -82,9 +82,8 @@ export default async function NewPhonePage({ searchParams }: { searchParams: Pro
         initial={initial}
         initialModel={initialModel}
         isOwner={user.role === "owner"}
-        specsEnabled={specsLookupEnabled()}
+        aiEnabled={aiLookupEnabled()}
         defaultWarranty={settings.defaultWarrantyMonths}
-        savedImeiLast4={null}
         status={null}
         sourceRequestId={sourceRequestId}
       />

@@ -323,8 +323,6 @@ export const en = {
     checkText: "Enter the bill number and the mobile number used at purchase.",
     check: "Check warranty",
     notFound: "No bill matches these details. Check the bill number and mobile number.",
-    imei: "IMEI",
-    imeiEnding: (last4: string) => `ending in ${last4}`,
     cancelled: (date: string) => `This bill was cancelled on ${date}. It is kept only for the shop’s records.`,
     cancelledShort: "Cancelled",
     comesWith: "Comes with",

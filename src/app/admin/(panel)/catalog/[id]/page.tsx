@@ -10,7 +10,7 @@ import { EditModelForm } from "@/components/admin/catalog-forms";
 
 export const metadata = { title: "Edit model" };
 
-const SOURCE: Record<string, string> = { seed: "sample data", ai: "the internet (AI search)", manual: "typed by hand" };
+const SOURCE: Record<string, string> = { seed: "sample data", ai: "the internet (AI search)", gsmarena: "GSMArena", manual: "typed by hand" };
 
 export default async function ModelPage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<{ created?: string }> }) {
   const user = await requireAdmin();

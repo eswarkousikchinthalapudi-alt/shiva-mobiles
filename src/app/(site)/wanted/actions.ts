@@ -5,6 +5,7 @@ import { z } from "zod";
 import { getDb, schema } from "@/db";
 import { isLang } from "@/i18n/dictionaries";
 import { normalizeIndianMobile } from "@/lib/format";
+import { maskImeis } from "@/lib/imei";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { getRequestInfo } from "@/lib/security/request";
 import { verifyTurnstile } from "@/lib/security/turnstile";
@@ -13,7 +14,7 @@ export type WantedState = { ok: true } | { ok: false; error: "invalid" | "mobile
 
 const wantedSchema = z.object({
   name: z.string().trim().min(2).max(60),
-  want: z.string().trim().min(2).max(100),
+  want: z.string().trim().min(2).max(100).transform(maskImeis),
   maxBudget: z.number().int().min(1000).max(500000).nullable(),
   lang: z.string(),
 });

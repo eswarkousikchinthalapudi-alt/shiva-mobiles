@@ -7,6 +7,7 @@ import { getDb, schema } from "@/db";
 import type { SellStatus } from "@/db/schema";
 import { audit } from "@/lib/audit";
 import { getAdminOrNull } from "@/lib/auth/dal";
+import { fieldWithImei, IMEI_NOT_SAVED } from "@/lib/imei";
 import { deleteMedia } from "@/lib/media";
 
 const CLOSED: SellStatus[] = ["bought", "rejected", "cancelled"];
@@ -28,6 +29,8 @@ export async function updateSellRequestAction(input: RequestUpdate): Promise<{ o
   const parsed = updateSchema.safeParse(input);
   if (!parsed.success) return { ok: false, error: parsed.error.issues[0]?.message ?? "Check the form." };
   const data = parsed.data;
+  const imeiField = fieldWithImei({ "The message for the seller": data.publicNote, "Private notes": data.adminNotes });
+  if (imeiField) return { ok: false, error: `${imeiField} ${IMEI_NOT_SAVED}` };
   const db = await getDb();
   const [current] = await db.select().from(schema.sellRequests).where(eq(schema.sellRequests.id, data.id)).limit(1);
   if (!current) return { ok: false, error: "This request no longer exists." };

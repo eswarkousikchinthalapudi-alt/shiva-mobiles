@@ -321,8 +321,6 @@ export const te: Dictionary = {
     checkText: "బిల్ నంబర్, కొన్నప్పుడు ఇచ్చిన మొబైల్ నంబర్ ఇవ్వండి.",
     check: "వారంటీ చెక్ చేయండి",
     notFound: "ఈ వివరాలతో బిల్ దొరకలేదు. బిల్ నంబర్, మొబైల్ నంబర్ చెక్ చేయండి.",
-    imei: "IMEI",
-    imeiEnding: (last4: string) => `చివరి అంకెలు ${last4}`,
     cancelled: (date: string) => `ఈ బిల్ ${date} న రద్దు అయ్యింది. షాప్ రికార్డుల కోసం మాత్రమే ఉంచాం.`,
     cancelledShort: "రద్దు అయ్యింది",
     comesWith: "ఫోన్‌తో పాటు",

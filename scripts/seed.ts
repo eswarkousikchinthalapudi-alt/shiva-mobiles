@@ -18,7 +18,7 @@ import { processListingPhoto, storeListingPhoto } from "@/lib/media";
 import { newBillToken, saleItemFrom } from "@/lib/sales";
 import { allPassed, type TestKey } from "@/lib/phone-tests";
 import { DEFAULT_PRICING, estimatePrice } from "@/lib/pricing";
-import { encryptString, keyedHash, randomToken, sha256Hex } from "@/lib/security/crypto";
+import { keyedHash, randomToken, sha256Hex } from "@/lib/security/crypto";
 import { hashPassword } from "@/lib/security/password";
 import type { SellAnswers } from "@/lib/sell-quiz";
 import { backSvg, frontSvg } from "./placeholder-images";
@@ -28,20 +28,6 @@ const DAY = 86400000;
 
 function fullName(brand: string, name: string) {
   return brand.toLowerCase() === "apple" || name.toLowerCase().startsWith(brand.toLowerCase()) ? name : `${brand} ${name}`;
-}
-
-function fakeImei(seed: number) {
-  const body = `35${String(100000000000 + seed * 7919).slice(0, 12)}`.slice(0, 14);
-  let sum = 0;
-  for (let i = 0; i < 14; i++) {
-    let d = Number(body[i]);
-    if (i % 2 === 1) {
-      d *= 2;
-      if (d > 9) d -= 9;
-    }
-    sum += d;
-  }
-  return body + ((10 - (sum % 10)) % 10);
 }
 
 async function main() {
@@ -143,7 +129,6 @@ async function main() {
     for (const failed of item.failed ?? []) tests[failed as TestKey] = false;
     if (model.brand !== "Apple" && model.name.includes("A14")) delete tests.biometric;
     const publishedAt = new Date(now - item.daysAgo * DAY - index * 3600000);
-    const imei = fakeImei(index);
     const [listing] = await db
       .insert(schema.listings)
       .values({
@@ -170,11 +155,9 @@ async function main() {
         notesTe: item.notesTe ?? "",
         shopTags: item.shopTags ?? [],
         featured: item.featured ?? false,
-        imeiEnc: await encryptString(imei, "imei"),
-        imeiLast4: imei.slice(-4),
         imeiStatus: "clear",
         imeiCheckedAt: new Date(publishedAt.getTime() - 3600000),
-        imeiCheckRef: "DEMO",
+        imeiCheckRef: null,
         status: item.status === "draft" ? "draft" : (item.status ?? "available"),
         publishedAt,
         reservedAt: item.status === "reserved" ? new Date(now - DAY) : null,
@@ -205,7 +188,6 @@ async function main() {
         tokenHash,
         tokenEnc,
         item: saleItemFrom(full, model.brand, model.name),
-        imeiEnc: full.imeiEnc,
         buyerName: index % 2 ? "Ravi Kumar" : "Lakshmi P",
         buyerPhone: `90000000${String(index).padStart(2, "0")}`,
         soldPriceInr: item.priceInr - 500,
