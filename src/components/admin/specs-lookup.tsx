@@ -54,7 +54,7 @@ export function SpecsLookup({
         ) : aiEnabled ? (
           <button type="button" onClick={lookup} disabled={looking || text.length < 2} className={buttonClass("primary", "md")}>
             {looking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
-            {looking ? "Searching online…" : "Find specs online"}
+            {looking ? "Asking the free AI…" : "Get specs with free AI"}
           </button>
         ) : null}
         {!isLink ? (
@@ -70,7 +70,7 @@ export function SpecsLookup({
         {isLink
           ? "The specs are read from this GSMArena page. You can check them before saving."
           : aiEnabled
-            ? "Free option: open the phone on GSMArena, copy the link of its page and paste it in the box above."
+            ? "The free AI may not know very new phones. For those, open the phone on GSMArena, copy the link of its page and paste it in the box above."
             : "Open the phone on GSMArena, copy the link of its page and paste it in the box above. The specs fill in by themselves."}
       </p>
       {error ? (

@@ -48,3 +48,21 @@ export function parseGsmarenaLink(input: string): LinkCheck {
   const id = String(Number(match[2]));
   return { ok: true, link: { slug, id, url: `https://www.gsmarena.com/${slug}-${id}.php` } };
 }
+
+/**
+ * Where a GSMArena redirect may take the reader: only another GSMArena phone
+ * page (desktop or phone site), kept exactly as given apart from https.
+ * Returns null for anything else.
+ */
+export function redirectTarget(location: string, base: string): string | null {
+  let next: URL;
+  try {
+    next = new URL(location, base);
+  } catch {
+    return null;
+  }
+  if (!HOSTS.has(next.hostname.toLowerCase()) || !parseGsmarenaLink(next.toString()).ok) return null;
+  next.protocol = "https:";
+  next.hash = "";
+  return next.toString();
+}

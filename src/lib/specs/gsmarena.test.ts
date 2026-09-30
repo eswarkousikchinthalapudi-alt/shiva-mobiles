@@ -167,7 +167,10 @@ describe("readGsmarenaSpecs", () => {
     const [url, init] = fetchMock.mock.calls[0] as unknown as [string, RequestInit];
     expect(url).toBe("https://www.gsmarena.com/xiaomi_redmi_note_13_pro_5g-12581.php");
     expect(init.redirect).toBe("manual");
-    expect(new Headers(init.headers).get("user-agent")).toMatch(/^ShivaMobilesCatalog\//);
+    const ua = new Headers(init.headers).get("user-agent") ?? "";
+    expect(ua).toMatch(/compatible; ShivaShopCatalog\//);
+    // Sites send "Mobile"/"phone" browsers to their phone site; our tool must not look like one.
+    expect(ua).not.toMatch(/mobile|phone|android|iphone/i);
   });
 
   it("uses the saved copy for an hour", async () => {
@@ -194,6 +197,66 @@ describe("readGsmarenaSpecs", () => {
     expect(evil).toHaveBeenCalledTimes(1);
   });
 
+  it("follows a redirect to the phone site exactly, keeping cookies, and still saves the desktop link", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(
+        new Response(null, {
+          status: 302,
+          headers: { location: "https://m.gsmarena.com/oneplus_12r-12800.php", "set-cookie": "gsm_pref=m; Path=/; HttpOnly" },
+        }),
+      )
+      .mockResolvedValueOnce(htmlResponse(fixture("xiaomi_redmi_note_13_pro_5g-12581.html")));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await readGsmarenaSpecs("https://www.gsmarena.com/oneplus_12r-12800.php");
+    expect(result).toMatchObject({ ok: true, specs: { sourceUrls: ["https://www.gsmarena.com/oneplus_12r-12800.php"] } });
+    const [secondUrl, secondInit] = fetchMock.mock.calls[1] as unknown as [string, RequestInit];
+    expect(secondUrl).toBe("https://m.gsmarena.com/oneplus_12r-12800.php");
+    expect(new Headers(secondInit.headers).get("cookie")).toBe("gsm_pref=m");
+  });
+
+  it("stops when GSMArena sends it back and forth", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: "https://m.gsmarena.com/oneplus_12r-12801.php" } }))
+      .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: "https://www.gsmarena.com/oneplus_12r-12801.php" } }));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await readGsmarenaSpecs("https://www.gsmarena.com/oneplus_12r-12801.php");
+    expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/back and forth/) });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it("allows one trip back to the same page after a cookie check", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(null, { status: 302, headers: { location: "/oneplus_12r-12803.php", "set-cookie": "chk=ok; Path=/" } }))
+      .mockResolvedValueOnce(htmlResponse(fixture("samsung_galaxy_a54-12070.html")));
+    vi.stubGlobal("fetch", fetchMock);
+    expect((await readGsmarenaSpecs("https://www.gsmarena.com/oneplus_12r-12803.php")).ok).toBe(true);
+    expect(new Headers((fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1].headers).get("cookie")).toBe("chk=ok");
+  });
+
+  it("says where GSMArena sent it when that isn't a phone page", async () => {
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => new Response(null, { status: 302, headers: { location: "https://www.gsmarena.com/" } })),
+    );
+    const result = await readGsmarenaSpecs("https://www.gsmarena.com/oneplus_12r-12802.php");
+    expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/different page.*Details: 302 to www\.gsmarena\.com\//) });
+  });
+
+  it("reads a page whose heading has no data-spec (phone-site layout)", async () => {
+    const html = fixture("samsung_galaxy_a54-12070.html").replace('class="specs-phone-name-title" data-spec="modelname"', 'class="section nobor"');
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () => htmlResponse(html)),
+    );
+    expect(await readGsmarenaSpecs("https://www.gsmarena.com/samsung_galaxy_a54-99999.php")).toMatchObject({
+      ok: true,
+      specs: { brand: "Samsung", name: "Galaxy A54" },
+    });
+  });
+
   it("explains blocks, missing pages and busy periods", async () => {
     vi.stubGlobal(
       "fetch",
@@ -201,7 +264,7 @@ describe("readGsmarenaSpecs", () => {
     );
     expect(await readGsmarenaSpecs("https://www.gsmarena.com/oneplus_12-12725.php")).toMatchObject({
       ok: false,
-      error: expect.stringMatching(/didn't let our server/),
+      error: expect.stringMatching(/prove it's human/),
     });
     vi.stubGlobal(
       "fetch",

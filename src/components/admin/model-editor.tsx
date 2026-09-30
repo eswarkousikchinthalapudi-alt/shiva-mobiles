@@ -98,7 +98,7 @@ export function ModelEditor({
     <div className={cn("space-y-4", source !== "edit" && "mt-4 rounded-2xl border border-line-strong bg-surface-2 p-4")}>
       {source === "ai" ? (
         <Alert live tone="warn">
-          Found online by AI. Please check these specs before saving, especially the prices.
+          Filled by a free AI from what it remembers (it can&apos;t search the web). Check every number before saving, and add launch prices if you know them.
         </Alert>
       ) : source === "gsmarena" ? (
         <Alert live tone="ok">
