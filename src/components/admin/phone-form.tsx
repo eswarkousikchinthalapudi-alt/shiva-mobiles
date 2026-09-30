@@ -381,6 +381,8 @@ export function PhoneForm({
     ),
   ];
 
+  const ramChoices = [...new Set([...ramOptions, 4, 6, 8, 12, 16])].sort((a, b) => a - b);
+
   const pickModel = (next: ModelOption | null) => {
     setModel(next);
     if (next) {
@@ -467,19 +469,25 @@ export function PhoneForm({
           {model?.os !== "iOS" ? (
             <Group label="RAM (GB)">
               <div className="flex flex-wrap gap-2">
-                {[...new Set([...ramOptions, 4, 6, 8, 12])]
-                  .sort((a, b) => a - b)
-                  .map((r) => (
-                    <button
-                      key={r}
-                      type="button"
-                      onClick={() => set({ ramGb: r })}
-                      aria-pressed={v.ramGb === r}
-                      className={cn("h-11 rounded-xl border px-4 font-semibold", v.ramGb === r ? "border-brand bg-brand text-brand-fg" : "border-line-strong")}
-                    >
-                      {r} GB
-                    </button>
-                  ))}
+                {ramChoices.map((r) => (
+                  <button
+                    key={r}
+                    type="button"
+                    onClick={() => set({ ramGb: r })}
+                    aria-pressed={v.ramGb === r}
+                    className={cn("h-11 rounded-xl border px-4 font-semibold", v.ramGb === r ? "border-brand bg-brand text-brand-fg" : "border-line-strong")}
+                  >
+                    {r} GB
+                  </button>
+                ))}
+                <input
+                  className={cn(inputClass, "h-11 w-28")}
+                  inputMode="numeric"
+                  placeholder="Other GB"
+                  value={v.ramGb && !ramChoices.includes(v.ramGb) ? v.ramGb : ""}
+                  onChange={(e) => set({ ramGb: num(e.target.value) })}
+                  aria-label="Other RAM in GB"
+                />
               </div>
             </Group>
           ) : null}

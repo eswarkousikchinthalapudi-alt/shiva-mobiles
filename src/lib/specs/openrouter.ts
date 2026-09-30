@@ -17,20 +17,39 @@ import { cleanChipset, parseModelCodes, performanceFromChipset, toInt } from "./
 const API_URL = "https://openrouter.ai/api/v1/chat/completions";
 export const FREE_ROUTER = "openrouter/free";
 
+/**
+ * Free models that are big enough to read a spec sheet and answer in JSON,
+ * best first (checked on OpenRouter, 30 Sept 2026). The free router is kept
+ * as the last resort only: it picks at random and may land on a tiny model.
+ */
+export const FREE_MODELS = [
+  "nvidia/nemotron-3-super-120b-a12b:free",
+  "google/gemma-4-31b-it:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "qwen/qwen3.8-27b:free",
+  FREE_ROUTER,
+];
+
 export function isFreeModel(id: string) {
   return id === FREE_ROUTER || id.endsWith(":free");
 }
 
 let warnedPaid = false;
-export function chosenModel(): string {
+/** The models to try, in order. OPENROUTER_MODEL (a ":free" model) goes first when set. */
+export function modelOrder(): string[] {
   const configured = process.env.OPENROUTER_MODEL?.trim();
-  if (!configured) return FREE_ROUTER;
-  if (isFreeModel(configured)) return configured;
+  if (!configured) return FREE_MODELS;
+  if (isFreeModel(configured)) return [configured, ...FREE_MODELS.filter((m) => m !== configured)];
   if (!warnedPaid) {
     warnedPaid = true;
-    console.warn(`[specs-ai] OPENROUTER_MODEL "${configured}" is not a free model, so ${FREE_ROUTER} is used instead.`);
+    console.warn(`[specs-ai] OPENROUTER_MODEL "${configured}" is not a free model, so it is ignored.`);
   }
-  return FREE_ROUTER;
+  return FREE_MODELS;
+}
+
+/** Kept for callers that want a single name: the first model that will be tried. */
+export function chosenModel(): string {
+  return modelOrder()[0];
 }
 
 export function aiLookupEnabled() {
@@ -203,11 +222,15 @@ Rules: brand as sold in India (e.g. Samsung, Apple, Redmi, Poco, iQOO); name wit
 
 type AskResult = { ok: true; content: string; model: string } | { ok: false; error: string };
 
-/** One request to a free model on OpenRouter, with the JSON schema and a zero price cap. */
-async function askFreeModel(system: string, user: string, maxTokens: number): Promise<AskResult> {
+/**
+ * One request to a free model on OpenRouter, with the JSON schema and a zero
+ * price cap. `models` lists the fallbacks OpenRouter itself switches to when
+ * a model is down or rate limited.
+ */
+async function askFreeModel(system: string, user: string, maxTokens: number, models: string[]): Promise<AskResult> {
   const apiKey = process.env.OPENROUTER_API_KEY?.trim();
   if (!apiKey) return { ok: false, error: `The free AI is off (no OPENROUTER_API_KEY). ${PASTE_INSTEAD}` };
-  const model = chosenModel();
+  const model = models[0];
   let response: Response;
   try {
     response = await fetch(API_URL, {
@@ -217,6 +240,7 @@ async function askFreeModel(system: string, user: string, maxTokens: number): Pr
       headers: { Authorization: `Bearer ${apiKey}`, "Content-Type": "application/json", "X-Title": "Shiva Mobiles" },
       body: JSON.stringify({
         model,
+        models,
         messages: [
           { role: "system", content: system },
           { role: "user", content: user },
@@ -259,6 +283,32 @@ async function askFreeModel(system: string, user: string, maxTokens: number): Pr
   return { ok: true, content: data.choices?.[0]?.message?.content ?? "", model: data.model ?? model };
 }
 
+type Asked =
+  | { ok: true; answer: AiAnswer & { ok: true }; model: string }
+  | { ok: false; error: string }
+  | { ok: false; notFound: true; model: string }
+  | { ok: false; unreadable: true; models: string[] };
+
+/**
+ * Asks the free models in order until one gives a readable answer (at most
+ * three tries). "Not found" is an answer; garbled output moves on to the next model.
+ */
+async function askUntilReadable(system: string, user: string, maxTokens: number): Promise<Asked> {
+  const order = modelOrder();
+  const tried: string[] = [];
+  for (let attempt = 0; attempt < Math.min(3, order.length); attempt++) {
+    const models = order.slice(attempt);
+    const asked = await askFreeModel(system, user, maxTokens, models);
+    if (!asked.ok) return asked;
+    tried.push(asked.model);
+    const answer = toModelInput(extractJson(asked.content));
+    if (answer.ok) return { ok: true, answer, model: asked.model };
+    if (answer.reason === "not-found") return { ok: false, notFound: true, model: asked.model };
+    console.warn("[specs-ai] unreadable answer from", asked.model, asked.content.slice(0, 200));
+  }
+  return { ok: false, unreadable: true, models: tried };
+}
+
 /** Specs from a phone name or model number, from the free model's memory. */
 export async function lookupWithAi(query: string): Promise<AiOutcome> {
   const clean = query
@@ -267,17 +317,13 @@ export async function lookupWithAi(query: string): Promise<AiOutcome> {
     .trim()
     .slice(0, 80);
   if (clean.length < 2) return { ok: false, error: "Type the phone name first." };
-  const asked = await askFreeModel(SYSTEM, `Phone: ${clean}`, 3000);
-  if (!asked.ok) return asked;
-  const answer = toModelInput(extractJson(asked.content));
-  if (!answer.ok) {
-    console.warn("[specs-ai]", answer.reason, asked.model, asked.content.slice(0, 300));
-    if (answer.reason === "not-found") {
-      return { ok: false, error: `The free AI doesn't know this phone (it has no web search, so new phones are unknown to it). ${PASTE_INSTEAD}` };
-    }
-    return { ok: false, error: `The free AI's answer couldn't be read. Try again. ${PASTE_INSTEAD} (Details: ${asked.model})` };
-  }
-  return { ok: true, specs: answer.specs };
+  const asked = await askUntilReadable(SYSTEM, `Phone: ${clean}`, 3000);
+  if (asked.ok) return { ok: true, specs: asked.answer.specs };
+  if ("notFound" in asked)
+    return { ok: false, error: `The free AI doesn't know this phone (it has no web search, so new phones are unknown to it). ${PASTE_INSTEAD}` };
+  if ("unreadable" in asked)
+    return { ok: false, error: `The free AI's answers couldn't be read. Try again. ${PASTE_INSTEAD} (Details: ${asked.models.join(", ")})` };
+  return asked;
 }
 
 /** Specs read out of page text (a Wikipedia article, or text the owner pasted) by the free model. */
@@ -289,13 +335,10 @@ export async function extractWithAi(pageText: string, wanted: string): Promise<A
       .replace(/[\u0000-\u001f]/g, " ")
       .trim()
       .slice(0, 80) || "the phone the page is about";
-  const asked = await askFreeModel(EXTRACT_SYSTEM, `Phone the owner wants: ${phone}\n\nText from the page:\n\n${text}`, 3000);
-  if (!asked.ok) return asked;
-  const answer = toModelInput(extractJson(asked.content));
-  if (!answer.ok) {
-    console.warn("[specs-ai] extract", answer.reason, asked.model, asked.content.slice(0, 300));
-    if (answer.reason === "not-found") return { ok: false, error: "The free AI found no specs for this phone in that text." };
-    return { ok: false, error: `The free AI's answer couldn't be read. Try again, or add the specs by hand. (Details: ${asked.model})` };
-  }
-  return { ok: true, specs: answer.specs };
+  const asked = await askUntilReadable(EXTRACT_SYSTEM, `Phone the owner wants: ${phone}\n\nText from the page:\n\n${text}`, 3000);
+  if (asked.ok) return { ok: true, specs: asked.answer.specs };
+  if ("notFound" in asked) return { ok: false, error: "The free AI found no specs for this phone in that text." };
+  if ("unreadable" in asked)
+    return { ok: false, error: `The free AI's answers couldn't be read. Try again, or add the specs by hand. (Details: ${asked.models.join(", ")})` };
+  return asked;
 }

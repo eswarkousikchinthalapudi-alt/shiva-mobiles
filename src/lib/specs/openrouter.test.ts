@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { aiLookupEnabled, chosenModel, extractJson, lookupWithAi, toModelInput } from "./openrouter";
+import { aiLookupEnabled, chosenModel, extractJson, extractWithAi, FREE_MODELS, lookupWithAi, modelOrder, toModelInput } from "./openrouter";
 
 const answer = {
   found: true,
@@ -97,13 +97,16 @@ describe("extractJson", () => {
 describe("free models only", () => {
   afterEach(() => vi.unstubAllEnvs());
 
-  it("uses OpenRouter's free router, or another :free model, and never a paid one", () => {
+  it("tries good free models in order, or a chosen :free model first, and never a paid one", () => {
     vi.stubEnv("OPENROUTER_MODEL", "");
-    expect(chosenModel()).toBe("openrouter/free");
+    expect(chosenModel()).toBe("nvidia/nemotron-3-super-120b-a12b:free");
+    expect(modelOrder()).toEqual(FREE_MODELS);
+    expect(FREE_MODELS.every((m) => m === "openrouter/free" || m.endsWith(":free"))).toBe(true);
     vi.stubEnv("OPENROUTER_MODEL", "google/gemma-4-31b-it:free");
-    expect(chosenModel()).toBe("google/gemma-4-31b-it:free");
+    expect(modelOrder()[0]).toBe("google/gemma-4-31b-it:free");
+    expect(modelOrder()).toHaveLength(FREE_MODELS.length);
     vi.stubEnv("OPENROUTER_MODEL", "google/gemini-2.5-flash");
-    expect(chosenModel()).toBe("openrouter/free");
+    expect(modelOrder()).toEqual(FREE_MODELS);
   });
 });
 
@@ -131,12 +134,38 @@ describe("lookupWithAi", () => {
     expect(url).toBe("https://openrouter.ai/api/v1/chat/completions");
     expect(new Headers(init.headers).get("authorization")).toBe("Bearer sk-or-test");
     const body = JSON.parse(String(init.body));
-    expect(body.model).toBe("openrouter/free");
-    expect(body.models).toBeUndefined();
+    expect(body.model).toBe("nvidia/nemotron-3-super-120b-a12b:free");
+    expect(body.models).toEqual(FREE_MODELS);
     expect(body.plugins).toBeUndefined();
     expect(body.provider.max_price).toEqual({ prompt: 0, completion: 0, request: 0, image: 0 });
     expect(body.response_format.type).toBe("json_schema");
     expect(body.messages[1].content).toBe("Phone: RMX3771");
+  });
+
+  it("moves on to the next model when an answer can't be read", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "sk-or-test");
+    vi.stubEnv("OPENROUTER_MODEL", "");
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(reply("Sure! Here are the specs you asked for.", "liquid/lfm-2.5-2.6b:free"))
+      .mockResolvedValueOnce(reply(JSON.stringify(answer), "google/gemma-4-31b-it:free"));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await extractWithAi("System-on-chip: Dimensity 7050\nBattery: 5000 mAh", "Realme 11 Pro 5G");
+    expect(result).toMatchObject({ ok: true, specs: { brand: "Realme" } });
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    const second = JSON.parse(String((fetchMock.mock.calls[1] as unknown as [string, RequestInit])[1].body));
+    expect(second.model).toBe(FREE_MODELS[1]);
+    expect(second.models).toEqual(FREE_MODELS.slice(1));
+  });
+
+  it("gives up after three unreadable answers and names the models", async () => {
+    vi.stubEnv("OPENROUTER_API_KEY", "sk-or-test");
+    vi.stubEnv("OPENROUTER_MODEL", "");
+    const fetchMock = vi.fn(async () => reply("nonsense", "liquid/lfm-2.5-2.6b:free"));
+    vi.stubGlobal("fetch", fetchMock);
+    const result = await lookupWithAi("Galaxy A54");
+    expect(result).toMatchObject({ ok: false, error: expect.stringMatching(/couldn't be read.*Details: liquid/) });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
   });
 
   it("says when the free AI doesn't know the phone", async () => {
