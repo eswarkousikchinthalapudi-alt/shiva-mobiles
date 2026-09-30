@@ -196,7 +196,7 @@ Then pick the variant, colour and grade, fill in battery health and the 12 tests
 
 > Since 22 October 2025, the Telecommunications (Telecom Cyber Security) Amendment Rules, 2025 require dealers in used phones to check each phone's IMEI against the government database before buying or selling it. Do the check on the official portal, then record the result (and any reference number, never the IMEI) here. Check the current rules with the Department of Telecommunications.
 
-**Hide prices** — in **Shop settings → Prices**, untick *Show selling prices on the website*. Visitors then see "Ask for price" on the website, posters and WhatsApp captions, price filters and "you save" lines disappear, and they contact you instead. Bills and the admin panel keep showing prices.
+**Hide prices** — in **Shop settings → Prices**, untick _Show selling prices on the website_. Visitors then see "Ask for price" on the website, posters and WhatsApp captions, price filters and "you save" lines disappear, and they contact you instead. Bills and the admin panel keep showing prices.
 
 **Share to WhatsApp** — on the phone's page, tap **Share to WhatsApp**. The poster and photos open in WhatsApp's share screen; the caption is copied, so long-press and paste it. Links carry `?src=wa`, so the phone's page shows how many visits came from WhatsApp.
 
