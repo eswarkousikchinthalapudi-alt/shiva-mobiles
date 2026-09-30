@@ -145,7 +145,7 @@ describe("lookupWithAi", () => {
       "fetch",
       vi.fn(async () => reply(JSON.stringify({ ...answer, found: false }))),
     );
-    expect(await lookupWithAi("Galaxy S26 Ultra")).toMatchObject({ ok: false, error: expect.stringMatching(/doesn't know this phone.*GSMArena link/) });
+    expect(await lookupWithAi("Galaxy S26 Ultra")).toMatchObject({ ok: false, error: expect.stringMatching(/doesn't know this phone/) });
   });
 
   it("explains a bad key, busy free models and the privacy setting", async () => {

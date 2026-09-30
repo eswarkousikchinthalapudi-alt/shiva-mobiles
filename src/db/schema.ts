@@ -182,7 +182,7 @@ export const media = pgTable("media", {
 // ---------------------------------------------------------------------------
 
 export type ModelVariant = { ramGb: number | null; storageGb: number; launchPriceInr: number | null };
-export type SpecSource = "seed" | "ai" | "gsmarena" | "manual";
+export type SpecSource = "seed" | "ai" | "gsmarena" | "wikipedia" | "pasted" | "manual";
 
 export const phoneModels = pgTable(
   "phone_models",

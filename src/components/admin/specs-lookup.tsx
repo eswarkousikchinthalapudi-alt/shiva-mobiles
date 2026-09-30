@@ -1,23 +1,21 @@
 "use client";
 
-import { ExternalLink, Link2, Loader2, Sparkles } from "lucide-react";
+import { ClipboardPaste, Loader2, Sparkles } from "lucide-react";
 import { useState, useTransition } from "react";
-import { lookupSpecsAction } from "@/app/admin/(panel)/phones/actions";
+import { lookupSpecsAction, readSpecsTextAction } from "@/app/admin/(panel)/phones/actions";
 import type { ModelInput } from "@/lib/admin/catalog";
 import { looksLikeLink } from "@/lib/specs/link";
 import { buttonClass } from "@/components/ui/button";
-import { Alert } from "./ui";
+import { cn } from "@/components/ui/cn";
+import { Alert, inputClass } from "./ui";
 
-export type LookupSource = "gsmarena" | "ai";
-
-export function gsmarenaSearchUrl(query: string) {
-  const q = query.trim();
-  return q && !looksLikeLink(q) ? `https://www.gsmarena.com/results.php3?sQuickSearch=yes&sName=${encodeURIComponent(q)}` : "https://www.gsmarena.com/";
-}
+export type LookupSource = "gsmarena" | "wikipedia" | "ai" | "pasted";
 
 /**
- * The buttons under the "which phone?" box. A pasted GSMArena link is read
- * for free; a typed name goes to the AI lookup when it's switched on.
+ * The buttons under the "which phone?" box. One tap gets the specs
+ * (Wikipedia read by the free AI, the AI's memory as a backup, or a
+ * GSMArena link if one was pasted). Pasting specs text from any site is
+ * kept as a fallback for phones nothing knows.
  */
 export function SpecsLookup({
   query,
@@ -27,11 +25,14 @@ export function SpecsLookup({
 }: {
   query: string;
   aiEnabled: boolean;
-  onFound: (value: ModelInput, source: LookupSource) => void;
+  onFound: (value: ModelInput, source: LookupSource, note?: string) => void;
   onManual: () => void;
 }) {
   const [error, setError] = useState<string | null>(null);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasted, setPasted] = useState("");
   const [looking, startLookup] = useTransition();
+  const [reading, startRead] = useTransition();
   const text = query.trim();
   const isLink = looksLikeLink(text);
 
@@ -39,40 +40,71 @@ export function SpecsLookup({
     startLookup(async () => {
       setError(null);
       const result = await lookupSpecsAction(text);
-      if (result.ok && result.data) onFound(result.data.specs, result.data.source);
+      if (result.ok && result.data) onFound(result.data.specs, result.data.source, result.data.note);
+      else if (!result.ok) setError(result.error);
+    });
+
+  const readPasted = () =>
+    startRead(async () => {
+      setError(null);
+      const result = await readSpecsTextAction(pasted, isLink ? "" : text);
+      if (result.ok && result.data) onFound(result.data.specs, result.data.source, result.data.note);
       else if (!result.ok) setError(result.error);
     });
 
   return (
-    <div className="mt-3 space-y-2">
+    <div className="mt-3 space-y-3">
       <div className="flex flex-wrap gap-2">
-        {isLink ? (
-          <button type="button" onClick={lookup} disabled={looking} className={buttonClass("primary", "md")}>
-            {looking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Link2 className="h-4 w-4" aria-hidden />}
-            {looking ? "Reading GSMArena…" : "Get specs from this link"}
-          </button>
-        ) : aiEnabled ? (
-          <button type="button" onClick={lookup} disabled={looking || text.length < 2} className={buttonClass("primary", "md")}>
-            {looking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
-            {looking ? "Asking the free AI…" : "Get specs with free AI"}
-          </button>
-        ) : null}
-        {!isLink ? (
-          <a href={gsmarenaSearchUrl(text)} target="_blank" rel="noopener noreferrer" className={buttonClass("secondary", "md")}>
-            <ExternalLink className="h-4 w-4" aria-hidden /> Search on GSMArena
-          </a>
-        ) : null}
-        <button type="button" onClick={onManual} className={buttonClass(isLink || aiEnabled ? "ghost" : "secondary", "md")}>
+        <button type="button" onClick={lookup} disabled={looking || text.length < 2} className={buttonClass("primary", "md")}>
+          {looking ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : <Sparkles className="h-4 w-4" aria-hidden />}
+          {looking ? "Getting specs…" : isLink ? "Get specs from this link" : "Get specs"}
+        </button>
+        <button type="button" onClick={onManual} className={buttonClass("secondary", "md")}>
           Add by hand
         </button>
+        <button type="button" onClick={() => setPasteOpen((open) => !open)} aria-expanded={pasteOpen} className={buttonClass("ghost", "md")}>
+          <ClipboardPaste className="h-4 w-4" aria-hidden /> Paste specs
+        </button>
       </div>
-      <p className="text-sm text-muted">
-        {isLink
-          ? "The specs are read from this GSMArena page. You can check them before saving."
-          : aiEnabled
-            ? "The free AI may not know very new phones. For those, open the phone on GSMArena, copy the link of its page and paste it in the box above."
-            : "Open the phone on GSMArena, copy the link of its page and paste it in the box above. The specs fill in by themselves."}
-      </p>
+      {!pasteOpen ? (
+        <p className="text-sm text-muted">
+          {isLink
+            ? "The specs are read from this GSMArena page."
+            : aiEnabled
+              ? "Looks the phone up on Wikipedia and fills in the specs for you to check. Takes a few seconds."
+              : "Looks the phone up on Wikipedia. Add OPENROUTER_API_KEY on the server for better results."}
+        </p>
+      ) : null}
+      {pasteOpen ? (
+        <div className="space-y-3 rounded-2xl border border-line-strong bg-surface-2 p-4">
+          <p className="font-semibold">Paste the specs from any website</p>
+          <p className="text-sm text-muted">
+            Open the phone&apos;s page on GSMArena, 91mobiles, Smartprix or the brand&apos;s site, copy all the text (on a phone: long-press a word →{" "}
+            <strong>Select all</strong> → <strong>Copy</strong>; on a computer: Ctrl+A, Ctrl+C) and paste it here. Menus and other text that come along are
+            fine.
+          </p>
+          <label htmlFor="specs-paste" className="sr-only">
+            Copied specs text
+          </label>
+          <textarea
+            id="specs-paste"
+            className={cn(inputClass, "h-32 py-2 text-sm")}
+            placeholder="Paste here"
+            value={pasted}
+            maxLength={200000}
+            onChange={(e) => setPasted(e.target.value)}
+          />
+          <div className="flex flex-wrap gap-2">
+            <button type="button" onClick={readPasted} disabled={reading || pasted.trim().length < 20} className={buttonClass("primary", "md")}>
+              {reading ? <Loader2 className="h-4 w-4 animate-spin" aria-hidden /> : null}
+              {reading ? "Reading…" : "Read specs"}
+            </button>
+            <button type="button" onClick={() => setPasteOpen(false)} className={buttonClass("ghost", "md")}>
+              Close
+            </button>
+          </div>
+        </div>
+      ) : null}
       {error ? (
         <Alert live tone="bad">
           {error}

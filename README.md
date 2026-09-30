@@ -20,7 +20,7 @@ The public site works in **English and Telugu**. The admin panel is in English.
 
 **For the shop (admin panel at `/admin`)**
 
-- Add a phone in a few minutes. Paste the phone's GSMArena link, or type its name or model number (free AI, optional), and the specs fill in for you to check before saving. Photos are straightened, watermarked with the shop name and made small for fast loading.
+- Add a phone in a few minutes. Type the model name or number and the specs fill in from Wikipedia (read by a free AI) for you to check before saving. Photos are straightened, watermarked with the shop name and made small for fast loading.
 - **Share to WhatsApp:** a ready poster image, the photos, and captions in English and Telugu, to share to chats, groups or Status.
 - IMEI numbers are never stored. Staff check the IMEI in the government database and record only the result. A phone can't go live until the check is marked clear and it has a photo.
 - Mark sold → digital bill and warranty card, sent on WhatsApp in one tap. Later, ask for a Google review.
@@ -169,20 +169,20 @@ Never let visitors reach the Node server directly; without a proxy in front, the
 
 ### All settings
 
-| Setting                                      | Needed?     | What it is                                                                                                                                                 |
-| -------------------------------------------- | ----------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `APP_SECRET`                                 | Yes         | 32+ random characters. Encrypts 2-step keys and bill links.                                                                                                |
-| `DATABASE_URL`                               | Yes*        | Postgres connection string (*Docker Compose sets it)                                                                                                       |
-| `SITE_URL`                                   | Yes*        | Website address for WhatsApp posts, bills and the sitemap (*on Render, the onrender.com address is used until you set one)                                 |
-| `SETUP_TOKEN`                                | Once        | Allows creating the first owner at `/admin/setup`                                                                                                          |
-| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Recommended | Cloudflare Turnstile "I am human" check on public forms (free)                                                                                             |
-| `OPENROUTER_API_KEY`                         | No          | Turns on the free AI for filling specs by phone name or model number. Only free models are used. In OpenRouter, allow free models under Settings → Privacy |
-| `OPENROUTER_MODEL`                           | No          | A specific free model (must end in `:free`). Default: `openrouter/free`, which picks a free model for you                                                  |
-| `TRUSTED_IP_HEADER`, `TRUSTED_PROXY_HOPS`    | Depends     | See "Visitor IP addresses". Several headers can be listed, comma-separated                                                                                 |
-| `MIGRATE_ON_START`                           | No          | `1` applies database migrations when the server starts                                                                                                     |
-| `CRON_SECRET`                                | No          | Lets an outside scheduler call `POST /api/cron/cleanup`                                                                                                    |
-| `DATABASE_POOL_MAX`                          | No          | Database connections (default 5)                                                                                                                           |
-| `SITE_DOMAIN`, `POSTGRES_PASSWORD`           | Docker only | Domain for Caddy, and the database password                                                                                                                |
+| Setting                                      | Needed?     | What it is                                                                                                                                                           |
+| -------------------------------------------- | ----------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `APP_SECRET`                                 | Yes         | 32+ random characters. Encrypts 2-step keys and bill links.                                                                                                          |
+| `DATABASE_URL`                               | Yes*        | Postgres connection string (*Docker Compose sets it)                                                                                                                 |
+| `SITE_URL`                                   | Yes*        | Website address for WhatsApp posts, bills and the sitemap (*on Render, the onrender.com address is used until you set one)                                           |
+| `SETUP_TOKEN`                                | Once        | Allows creating the first owner at `/admin/setup`                                                                                                                    |
+| `TURNSTILE_SITE_KEY`, `TURNSTILE_SECRET_KEY` | Recommended | Cloudflare Turnstile "I am human" check on public forms (free)                                                                                                       |
+| `OPENROUTER_API_KEY`                         | Recommended | Lets the free AI read specs from Wikipedia and remember phones Wikipedia lacks. Only free models are used. In OpenRouter, allow free models under Settings → Privacy |
+| `OPENROUTER_MODEL`                           | No          | A specific free model (must end in `:free`). Default: `openrouter/free`, which picks a free model for you                                                            |
+| `TRUSTED_IP_HEADER`, `TRUSTED_PROXY_HOPS`    | Depends     | See "Visitor IP addresses". Several headers can be listed, comma-separated                                                                                           |
+| `MIGRATE_ON_START`                           | No          | `1` applies database migrations when the server starts                                                                                                               |
+| `CRON_SECRET`                                | No          | Lets an outside scheduler call `POST /api/cron/cleanup`                                                                                                              |
+| `DATABASE_POOL_MAX`                          | No          | Database connections (default 5)                                                                                                                                     |
+| `SITE_DOMAIN`, `POSTGRES_PASSWORD`           | Docker only | Domain for Caddy, and the database password                                                                                                                          |
 
 Without Turnstile keys the public forms still have a hidden spam trap and rate limits, but the keys are recommended once the site is public.
 
@@ -190,12 +190,9 @@ Without Turnstile keys the public forms still have a hidden spam trap and rate l
 
 ## Using the admin panel
 
-**Add a phone** — tap **+**. Type the model name or number (for example `A54` or `SM-A546E`). If it's not in your catalog yet, get the specs one of two ways:
+**Add a phone** — tap **+**. Type the model name or number (for example `Galaxy A54` or `SM-A546E`). If it's not in your catalog yet, tap **Get specs**: the site looks the phone up on Wikipedia and the free AI reads the specs out for you to check (a few seconds; works for new phones too). If Wikipedia has no page, the free AI answers from memory. If nothing knows the phone, tap **Add by hand**, or **Paste specs** to copy them from any specs website. Check the specs, remove variants not sold in India, add launch prices if you know them, and save. The model is then in your catalog for next time.
 
-- **Free:** tap **Search on GSMArena**, open the phone's page, copy its link, paste it in the same box and tap **Get specs from this link**.
-- **By name (optional):** tap **Get specs with free AI**. It's shown only when `OPENROUTER_API_KEY` is set. It uses free OpenRouter models only, which answer from memory without web search, so they may not know very new phones. Paste the GSMArena link for those.
-
-Check the specs, remove variants not sold in India, add launch prices if you know them, and save. The model is then in your catalog for next time. Then pick the variant, colour and grade, fill in battery health and the 12 tests, what comes in the box, the price, and (owner only) what you paid. Add 4 or more photos on a plain background. Check the IMEI (dial `*#06#`, then SMS `KYM <IMEI>` to 14422 or use the Sanchar Saathi app), mark the result, and tap **Publish**. The IMEI number itself is never saved; if one is typed into a notes box by mistake, the form asks you to remove it.
+Then pick the variant, colour and grade, fill in battery health and the 12 tests, what comes in the box, the price, and (owner only) what you paid. Add 4 or more photos on a plain background. Check the IMEI (dial `*#06#`, then SMS `KYM <IMEI>` to 14422 or use the Sanchar Saathi app), mark the result, and tap **Publish**. The IMEI number itself is never saved; if one is typed into a notes box by mistake, the form asks you to remove it.
 
 > Since 22 October 2025, the Telecommunications (Telecom Cyber Security) Amendment Rules, 2025 require dealers in used phones to check each phone's IMEI against the government database before buying or selling it. Do the check on the official portal, then record the result (and any reference number, never the IMEI) here. Check the current rules with the Department of Telecommunications.
 
@@ -220,7 +217,7 @@ Check the specs, remove variants not sold in India, add launch prices if you kno
 - Owner-only areas: buying costs, margins, settings, team, activity log, cancelling sales, deleting.
 - IMEI numbers are never stored: only the result of the government check is saved. Staff notes that contain an IMEI are refused, and IMEIs typed by customers are removed.
 - 2-step keys and bill links are encrypted (AES-256-GCM).
-- The specs reader only fetches GSMArena phone pages, rebuilt from the pasted link, with a timeout, size limit and rate limit. It never uses GSMArena's search.
+- Specs lookups read Wikipedia (one search and one article per lookup, with the site's name in the user agent) and, for pasted GSMArena links, that one page. Both have timeouts, size limits and rate limits. GSMArena's search is never used.
 - Every form is checked on the server. Public forms have rate limits, a spam trap and optional Turnstile. Photos are checked, re-encoded and stripped of location data.
 - Strict Content Security Policy with a fresh nonce per page, HSTS, no framing, no-store and noindex on admin pages.
 - An activity log records logins, changes, sales and exports.

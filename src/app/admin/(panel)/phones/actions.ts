@@ -18,7 +18,7 @@ import { formatInr, normalizeIndianMobile, slugify } from "@/lib/format";
 import { newBillToken, saleItemFrom } from "@/lib/sales";
 import { rateLimit } from "@/lib/security/rate-limit";
 import { getShopSettings, getSiteUrl } from "@/lib/settings";
-import { looksLikeLink, lookupSpecs, type SpecsFound } from "@/lib/specs";
+import { aiLookupEnabled, extractSpecsFromText, GOOD_ENOUGH, looksLikeLink, lookupSpecs, parseSpecsFromText, type SpecsFound } from "@/lib/specs";
 import { SHOP_TAGS } from "@/lib/tags";
 
 export type ActionResult<T = undefined> = { ok: true; data?: T } | { ok: false; error: string };
@@ -35,26 +35,50 @@ export async function searchModelsAction(query: string): Promise<ModelOption[]> 
   return searchCatalog(String(query ?? "").slice(0, 60), 8);
 }
 
-/** A pasted GSMArena link is read directly; a name or model number goes to the AI lookup (when it's switched on). */
+/** The "Get specs" button: a GSMArena link is read directly; a name or model number goes to Wikipedia + the free AI. */
 export async function lookupSpecsAction(query: string): Promise<ActionResult<SpecsFound>> {
   const admin = await getAdminOrNull();
   if (!admin) return { ok: false, error: "Please log in again." };
   const text = String(query ?? "").slice(0, 500);
   const isLink = looksLikeLink(text);
-  // AI lookups cost money, so they get a daily cap; GSMArena gets a gentle pace so we never hammer their site.
-  const limit = isLink ? await rateLimit(`specs-link:${admin.id}`, 60, 24 * 3600) : await rateLimit(`specs:${admin.id}`, 40, 24 * 3600);
+  // Free AI models and Wikipedia have their own limits, so lookups get a daily cap; GSMArena gets a gentle pace so we never hammer their site.
+  const limit = isLink ? await rateLimit(`specs-link:${admin.id}`, 60, 24 * 3600) : await rateLimit(`specs:${admin.id}`, 80, 24 * 3600);
   if (!limit.allowed) return { ok: false, error: "Daily limit for specs lookups reached. Try again tomorrow or add the specs by hand." };
   if (isLink && !(await rateLimit("specs-link:all", 20, 10 * 60)).allowed) {
     return { ok: false, error: "Lots of GSMArena lookups in the last few minutes. Wait a little and try again." };
   }
   const result = await lookupSpecs(text);
   await audit(admin, result.ok ? "specs_lookup" : "specs_lookup_failed", {
-    details: { query: text.slice(0, 120), source: isLink ? "gsmarena" : "ai" },
+    details: { query: text.slice(0, 120), source: result.ok ? result.data.source : isLink ? "gsmarena" : "search" },
   });
   return result;
 }
 
-export async function createModelAction(input: ModelInput, source: "ai" | "gsmarena" | "manual"): Promise<ActionResult<ModelOption>> {
+/**
+ * Specs from text the owner copied off a specs page. Read here first (no
+ * network); if that finds little and the free AI is on, the AI reads it.
+ */
+export async function readSpecsTextAction(pasted: string, hint: string): Promise<ActionResult<SpecsFound>> {
+  const admin = await getAdminOrNull();
+  if (!admin) return { ok: false, error: "Please log in again." };
+  if (!(await rateLimit(`specs-text:${admin.id}`, 300, 24 * 3600)).allowed) {
+    return { ok: false, error: "Daily limit for reading pasted specs reached. Try again tomorrow or add the specs by hand." };
+  }
+  const text = String(pasted ?? "").slice(0, 200_000);
+  const typed = String(hint ?? "").slice(0, 120);
+  const first = parseSpecsFromText(text, typed);
+  let result = first.outcome;
+  if (first.found < GOOD_ENOUGH && aiLookupEnabled() && (await rateLimit(`specs:${admin.id}`, 80, 24 * 3600)).allowed) {
+    const second = await extractSpecsFromText(text, typed);
+    if (second.ok || !first.outcome.ok) result = second;
+  }
+  await audit(admin, result.ok ? "specs_pasted" : "specs_pasted_failed", {
+    details: { chars: text.length, found: first.found, source: result.ok ? result.data.source : null },
+  });
+  return result;
+}
+
+export async function createModelAction(input: ModelInput, source: "ai" | "wikipedia" | "gsmarena" | "pasted" | "manual"): Promise<ActionResult<ModelOption>> {
   const admin = await getAdminOrNull();
   if (!admin) return { ok: false, error: "Please log in again." };
   const parsed = modelInputSchema.safeParse(input);
@@ -64,7 +88,7 @@ export async function createModelAction(input: ModelInput, source: "ai" | "gsmar
     const existing = await getModelOption(duplicate.id);
     if (existing) return { ok: true, data: existing };
   }
-  const id = await createModel(parsed.data, source === "ai" || source === "gsmarena" ? source : "manual");
+  const id = await createModel(parsed.data, ["ai", "wikipedia", "gsmarena", "pasted"].includes(source) ? source : "manual");
   await audit(admin, "model_created", { entity: "phone_model", entityId: id, details: { brand: parsed.data.brand, name: parsed.data.name, source } });
   const option = await getModelOption(id);
   return option ? { ok: true, data: option } : { ok: false, error: "Could not save the model." };

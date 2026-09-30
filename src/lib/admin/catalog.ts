@@ -146,8 +146,8 @@ export async function createModel(input: ModelInput, source: SpecSource): Promis
       ...input,
       slug: await uniqueSlug(slugify(`${input.brand} ${input.name}`)),
       specSource: source,
-      // Typed by hand or read straight from GSMArena (and checked in the form): counts as checked. AI answers need a second look.
-      verifiedAt: source === "manual" || source === "gsmarena" ? new Date() : null,
+      // Typed by hand or read straight off a specs page (and checked in the form): counts as checked. AI answers need a second look.
+      verifiedAt: source === "ai" || source === "wikipedia" || source === "seed" ? null : new Date(),
     })
     .returning({ id: schema.phoneModels.id });
   return row.id;

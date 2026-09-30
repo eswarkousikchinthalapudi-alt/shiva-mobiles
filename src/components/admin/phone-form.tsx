@@ -227,7 +227,7 @@ function ModelPicker({ model, onPick, aiEnabled }: { model: ModelOption | null; 
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<ModelOption[]>([]);
   const [searching, setSearching] = useState(false);
-  const [editor, setEditor] = useState<{ value: ModelInput; source: LookupSource | "manual" } | null>(null);
+  const [editor, setEditor] = useState<{ value: ModelInput; source: LookupSource | "manual"; note?: string } | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
   const isLink = looksLikeLink(query);
@@ -272,7 +272,7 @@ function ModelPicker({ model, onPick, aiEnabled }: { model: ModelOption | null; 
         <input
           id="model-search"
           className={cn(inputClass, "pl-11")}
-          placeholder="Model name or number, or paste a GSMArena link"
+          placeholder="Model name or number, e.g. Galaxy A54 or SM-A546E"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           autoComplete="off"
@@ -307,7 +307,7 @@ function ModelPicker({ model, onPick, aiEnabled }: { model: ModelOption | null; 
         <SpecsLookup
           query={query}
           aiEnabled={aiEnabled}
-          onFound={(value, source) => (setSaveError(null), setEditor({ value, source }))}
+          onFound={(value, source, note) => (setSaveError(null), setEditor({ value, source, note }))}
           onManual={() => (setSaveError(null), setEditor({ value: { ...EMPTY_MODEL, name: isLink ? "" : query.trim() }, source: "manual" }))}
         />
       ) : null}
@@ -320,6 +320,7 @@ function ModelPicker({ model, onPick, aiEnabled }: { model: ModelOption | null; 
         <ModelEditor
           value={editor.value}
           source={editor.source}
+          note={editor.note}
           onChange={(value) => setEditor({ ...editor, value })}
           onCancel={() => setEditor(null)}
           saving={saving}

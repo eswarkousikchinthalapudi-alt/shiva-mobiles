@@ -43,16 +43,19 @@ export function ModelEditor({
   source,
   saveLabel = "Save this model",
   extra,
+  note,
 }: {
   value: ModelInput;
   onChange: (next: ModelInput) => void;
   onSave: () => void;
   onCancel?: () => void;
   saving: boolean;
-  source: "ai" | "gsmarena" | "manual" | "edit";
+  source: "ai" | "wikipedia" | "gsmarena" | "pasted" | "manual" | "edit";
   saveLabel?: string;
   /** Extra controls shown above the save button (e.g. "mark as checked"). */
   extra?: React.ReactNode;
+  /** A short remark about where the specs came from. */
+  note?: string;
 }) {
   const set = (patch: Partial<ModelInput>) => onChange({ ...value, ...patch });
   const variantsText = value.variants.map((v) => `${v.ramGb ?? ""}/${v.storageGb}${v.launchPriceInr ? ` ${v.launchPriceInr}` : ""}`).join("\n");
@@ -100,6 +103,14 @@ export function ModelEditor({
         <Alert live tone="warn">
           Filled by a free AI from what it remembers (it can&apos;t search the web). Check every number before saving, and add launch prices if you know them.
         </Alert>
+      ) : source === "wikipedia" ? (
+        <Alert live tone="ok">
+          Read from Wikipedia. Check the numbers before saving (pages that cover a whole series can mix up models), and add launch prices if you know them.
+        </Alert>
+      ) : source === "pasted" ? (
+        <Alert live tone="ok">
+          Read from the text you pasted. Check each field; anything it couldn&apos;t find is left empty for you to fill in.
+        </Alert>
       ) : source === "gsmarena" ? (
         <Alert live tone="ok">
           Filled from GSMArena. Check the details, remove variants not sold in India, and add the launch prices if you know them.
@@ -107,6 +118,7 @@ export function ModelEditor({
       ) : source === "manual" ? (
         <p className="text-sm text-muted">Fill what you know. You can edit the specs later in the catalog.</p>
       ) : null}
+      {note ? <p className="text-sm text-muted">{note}</p> : null}
       <div className="grid gap-3 sm:grid-cols-2">
         <Field label="Brand" htmlFor="model-brand">
           <input id="model-brand" className={inputClass} value={value.brand} onChange={(e) => set({ brand: e.target.value })} placeholder="Samsung" />

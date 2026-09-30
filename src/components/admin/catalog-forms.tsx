@@ -94,7 +94,7 @@ export function EditModelForm({
 export function NewModelForm({ aiEnabled }: { aiEnabled: boolean }) {
   const router = useRouter();
   const [query, setQuery] = useState("");
-  const [editor, setEditor] = useState<{ value: ModelInput; source: LookupSource | "manual" } | null>(null);
+  const [editor, setEditor] = useState<{ value: ModelInput; source: LookupSource | "manual"; note?: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [saving, startSave] = useTransition();
 
@@ -102,13 +102,13 @@ export function NewModelForm({ aiEnabled }: { aiEnabled: boolean }) {
     <div className="space-y-4">
       {!editor ? (
         <div>
-          <Field label="GSMArena link, or model name or number" htmlFor="new-model-q" hint="e.g. a gsmarena.com link, Galaxy A55, SM-A556E or iPhone 14 Plus">
+          <Field label="Model name or number" htmlFor="new-model-q" hint="e.g. Galaxy A55, SM-A556E or iPhone 14 Plus">
             <input id="new-model-q" className={inputClass} value={query} onChange={(e) => setQuery(e.target.value)} maxLength={500} autoComplete="off" />
           </Field>
           <SpecsLookup
             query={query}
             aiEnabled={aiEnabled}
-            onFound={(value, source) => (setError(null), setEditor({ value, source }))}
+            onFound={(value, source, note) => (setError(null), setEditor({ value, source, note }))}
             onManual={() => (setError(null), setEditor({ value: { ...EMPTY_MODEL, name: looksLikeLink(query) ? "" : query.trim() }, source: "manual" }))}
           />
         </div>
@@ -123,6 +123,7 @@ export function NewModelForm({ aiEnabled }: { aiEnabled: boolean }) {
           <ModelEditor
             value={editor.value}
             source={editor.source}
+            note={editor.note}
             saving={saving}
             onChange={(value) => setEditor({ ...editor, value })}
             onCancel={() => setEditor(null)}

@@ -57,10 +57,23 @@ function brandSpelling(word: string) {
   return BRAND_SPELLING[word.toLowerCase()] ?? word.charAt(0).toUpperCase() + word.slice(1);
 }
 
-/** "Xiaomi Redmi Note 12 5G" → { brand: "Redmi", name: "Note 12 5G" }; "Apple iPhone 13" → { brand: "Apple", name: "iPhone 13" }. */
+/** Series names people type without the brand. */
+const SERIES_BRANDS: Record<string, string> = {
+  iphone: "Apple",
+  ipad: "Apple",
+  galaxy: "Samsung",
+  pixel: "Google",
+  nord: "OnePlus",
+  narzo: "Realme",
+  moto: "Motorola",
+};
+
+/** "Xiaomi Redmi Note 12 5G" → { brand: "Redmi", name: "Note 12 5G" }; "Apple iPhone 13" → { brand: "Apple", name: "iPhone 13" }; "iPhone 15" → { brand: "Apple", name: "iPhone 15" }. */
 export function splitBrand(fullName: string): { brand: string; name: string } {
   const clean = fullName.replace(/\s+/g, " ").trim();
   const space = clean.indexOf(" ");
+  const firstWord = (space < 0 ? clean : clean.slice(0, space)).toLowerCase();
+  if (SERIES_BRANDS[firstWord]) return { brand: SERIES_BRANDS[firstWord], name: clean };
   if (space < 0) return { brand: brandSpelling(clean), name: clean };
   const maker = clean.slice(0, space);
   const rest = clean.slice(space + 1);
