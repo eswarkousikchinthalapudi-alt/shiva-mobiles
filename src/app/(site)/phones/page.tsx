@@ -2,7 +2,9 @@ import { Search, X } from "lucide-react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { getT } from "@/i18n/server";
-import { activeFilterCount, filtersToSearchParams, parseFilters, type Filters, type PricePreset } from "@/lib/filters";
+import { activeFilterCount, filtersToSearchParams, parseFilters, withoutPriceFilters, type Filters, type PricePreset } from "@/lib/filters";
+import { getShopSettings } from "@/lib/settings";
+import { withoutPriceTags } from "@/lib/tags";
 import { brandCounts, searchListings } from "@/lib/listings";
 import { buttonClass } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
@@ -24,8 +26,11 @@ function hrefWith(filters: Filters, patch: Partial<Filters>) {
 }
 
 export default async function PhonesPage({ searchParams }: { searchParams: Promise<Record<string, string | string[] | undefined>> }) {
-  const filters = parseFilters(await searchParams);
+  const settings = await getShopSettings();
+  const showPrices = settings.showPrices;
+  const filters = showPrices ? parseFilters(await searchParams) : withoutPriceFilters(parseFilters(await searchParams));
   const [{ t, lang }, result, brands] = await Promise.all([getT(), searchListings(filters), brandCounts()]);
+  const quickTags = showPrices ? QUICK_TAGS : withoutPriceTags(QUICK_TAGS);
   const priceLabels: Record<PricePreset, string> = {
     "under-10k": t.browse.priceUnder10,
     "10k-20k": t.browse.price10to20,
@@ -88,7 +93,7 @@ export default async function PhonesPage({ searchParams }: { searchParams: Promi
       </form>
 
       <nav aria-label={t.a11y.quickFilters} className="scroll-row -mx-4 mt-4 flex gap-2 overflow-x-auto px-4 pb-1">
-        {QUICK_TAGS.map((tag) => {
+        {quickTags.map((tag) => {
           const active = filters.tag === tag;
           return (
             <Link
@@ -110,14 +115,14 @@ export default async function PhonesPage({ searchParams }: { searchParams: Promi
       <div className="mt-6 grid gap-6 lg:grid-cols-[17rem_1fr]">
         <aside className="hidden lg:block">
           <div className="sticky top-20">
-            <FilterSidebar filters={filters} brands={brands} />
+            <FilterSidebar filters={filters} brands={brands} showPrices={showPrices} />
           </div>
         </aside>
 
         <section aria-label={t.browse.title}>
           <div className="flex gap-2 lg:justify-end">
-            <FilterSheetButton filters={filters} brands={brands} />
-            <SortSelect filters={filters} />
+            <FilterSheetButton filters={filters} brands={brands} showPrices={showPrices} />
+            <SortSelect filters={filters} showPrices={showPrices} />
           </div>
 
           {chips.length > 0 ? (

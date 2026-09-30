@@ -57,6 +57,8 @@ export const shopSettings = pgTable("shop_settings", {
   googleReviewUrl: text("google_review_url").notNull().default(""),
   /** Printed on bills when the shop is GST registered */
   gstin: text("gstin").notNull().default(""),
+  /** Off = the website, posters and captions say "Ask for price" instead of showing selling prices */
+  showPrices: boolean("show_prices").notNull().default(true),
   siteUrl: text("site_url").notNull().default(""),
   defaultWarrantyMonths: integer("default_warranty_months").notNull().default(3),
   /** Days after its last update before a sell request (and its photos) is deleted */

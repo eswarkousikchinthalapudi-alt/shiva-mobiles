@@ -40,7 +40,9 @@ export async function shareDataByCode(code: string) {
 
   const captionEn = lines([
     `📱 ${name} · ${variant}${l.color ? ` · ${l.color}` : ""}`,
-    `💰 ${formatInr(l.priceInr)}${l.launchPriceInr && l.launchPriceInr > l.priceInr ? ` (new price ${formatInr(l.launchPriceInr)})` : ""}`,
+    settings.showPrices
+      ? `💰 ${formatInr(l.priceInr)}${l.launchPriceInr && l.launchPriceInr > l.priceInr ? ` (new price ${formatInr(l.launchPriceInr)})` : ""}`
+      : "💰 Ask for price",
     `✅ IMEI verified · ${tests.passed}/${tests.tested} tests passed`,
     `🔋 ${l.batteryHealth ? `Battery ${l.batteryHealth}%` : "Battery checked"} · Grade ${l.grade} (${gradeEn})`,
     l.warrantyMonths > 0 && `🛡️ ${l.warrantyMonths} month${l.warrantyMonths === 1 ? "" : "s"} shop warranty`,
@@ -51,7 +53,9 @@ export async function shareDataByCode(code: string) {
 
   const captionTe = lines([
     `📱 ${name} · ${variant}${l.color ? ` · ${l.color}` : ""}`,
-    `💰 ${formatInr(l.priceInr)}${l.launchPriceInr && l.launchPriceInr > l.priceInr ? ` (కొత్త ధర ${formatInr(l.launchPriceInr)})` : ""}`,
+    settings.showPrices
+      ? `💰 ${formatInr(l.priceInr)}${l.launchPriceInr && l.launchPriceInr > l.priceInr ? ` (కొత్త ధర ${formatInr(l.launchPriceInr)})` : ""}`
+      : "💰 ధర అడగండి",
     `✅ IMEI వెరిఫైడ్ · ${tests.tested}లో ${tests.passed} పరీక్షలు పాస్`,
     `🔋 ${l.batteryHealth ? `బ్యాటరీ ${l.batteryHealth}%` : "బ్యాటరీ చెక్ చేశాం"} · గ్రేడ్ ${l.grade} (${gradeTe})`,
     l.warrantyMonths > 0 && `🛡️ ${l.warrantyMonths} నెలల షాప్ వారంటీ`,

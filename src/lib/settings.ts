@@ -22,6 +22,7 @@ const DEFAULTS: ShopSettings = {
   hoursTe: "",
   googleReviewUrl: "",
   gstin: "",
+  showPrices: true,
   siteUrl: "",
   defaultWarrantyMonths: 3,
   retentionDays: 365,

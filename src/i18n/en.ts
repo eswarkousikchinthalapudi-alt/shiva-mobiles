@@ -130,6 +130,7 @@ export const en = {
     reserved: "Reserved",
     sold: "Sold",
     save: (amount: string) => `${amount} less than new`,
+    askPrice: "Ask for price",
   },
   phone: {
     healthReport: "Health report",

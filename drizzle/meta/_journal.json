@@ -15,6 +15,13 @@
       "when": 1790750432975,
       "tag": "0001_remove_imei_numbers",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1790759009017,
+      "tag": "0002_show_prices_setting",
+      "breakpoints": true
     }
   ]
 }

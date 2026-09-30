@@ -88,7 +88,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ code
     `${data.tests.passed}/${data.tests.tested} tests passed`,
     l.warrantyMonths > 0 ? `${l.warrantyMonths} month${l.warrantyMonths === 1 ? "" : "s"} warranty` : null,
   ].filter(Boolean) as string[];
-  const saving = l.launchPriceInr && l.launchPriceInr > l.priceInr ? l.launchPriceInr - l.priceInr : null;
+  const saving = settings.showPrices && l.launchPriceInr && l.launchPriceInr > l.priceInr ? l.launchPriceInr - l.priceInr : null;
 
   const image = new ImageResponse(
     <div
@@ -150,12 +150,12 @@ export async function GET(request: Request, { params }: { params: Promise<{ code
             color: "#2B1D00",
             fontFamily: "Bricolage, BricolageExt",
             fontWeight: 800,
-            fontSize: 72,
+            fontSize: settings.showPrices ? 72 : 48,
             padding: "14px 40px 14px 36px",
             borderRadius: 18,
           }}
         >
-          {formatInr(l.priceInr)}
+          {settings.showPrices ? formatInr(l.priceInr) : "Ask for price"}
         </div>
       </div>
 

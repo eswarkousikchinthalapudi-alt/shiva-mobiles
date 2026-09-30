@@ -2,7 +2,7 @@
  * Browse filters live in the URL so every search can be shared on WhatsApp.
  * This module parses and builds those URLs; it is used on server and client.
  */
-import { isTagKey, type TagKey } from "./tags";
+import { isTagKey, PRICE_TAGS, type TagKey } from "./tags";
 
 export const SORTS = ["newest", "price_asc", "price_desc", "battery", "value"] as const;
 export type Sort = (typeof SORTS)[number];
@@ -69,6 +69,16 @@ function one(params: Params, key: string): string | undefined {
 function pickNumber<T extends readonly number[]>(value: string | undefined, allowed: T): T[number] | null {
   const n = Number(value);
   return (allowed as readonly number[]).includes(n) ? (n as T[number]) : null;
+}
+
+/** With prices hidden, price filters, price sorting and price tags are dropped (even when typed into the address bar). */
+export function withoutPriceFilters(filters: Filters): Filters {
+  return {
+    ...filters,
+    price: null,
+    sort: filters.sort === "price_asc" || filters.sort === "price_desc" || filters.sort === "value" ? "newest" : filters.sort,
+    tag: filters.tag && (PRICE_TAGS as readonly string[]).includes(filters.tag) ? null : filters.tag,
+  };
 }
 
 export function parseFilters(params: Params): Filters {

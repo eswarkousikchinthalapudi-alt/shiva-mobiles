@@ -128,6 +128,7 @@ export const te: Dictionary = {
     reserved: "రిజర్వ్ అయ్యింది",
     sold: "అమ్ముడైంది",
     save: (amount: string) => `కొత్తదానికంటే ${amount} తక్కువ`,
+    askPrice: "ధర అడగండి",
   },
   phone: {
     healthReport: "హెల్త్ రిపోర్ట్",

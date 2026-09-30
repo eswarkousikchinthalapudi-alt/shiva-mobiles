@@ -4,7 +4,7 @@ import Link from "next/link";
 import { getT } from "@/i18n/server";
 import { formatInr } from "@/lib/format";
 import { listingsByCodes } from "@/lib/listings";
-import { getSiteUrl } from "@/lib/settings";
+import { getShopSettings, getSiteUrl } from "@/lib/settings";
 import { GradeBadge } from "@/components/ui/badges";
 import { cn } from "@/components/ui/cn";
 import { PhoneImage } from "@/components/ui/phone-image";
@@ -37,7 +37,8 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
   const codes = [...new Set((typeof raw === "string" ? raw : "").split(",").map((c) => c.trim().toUpperCase()))]
     .filter((c) => /^[A-Z]{2}-\d{3,6}$/.test(c))
     .slice(0, 3);
-  const [{ t }, siteUrl, items] = await Promise.all([getT(), getSiteUrl(), listingsByCodes(codes)]);
+  const [{ t }, siteUrl, items, settings] = await Promise.all([getT(), getSiteUrl(), listingsByCodes(codes), getShopSettings()]);
+  const showPrices = settings.showPrices;
 
   if (codes.length === 0 || items.length === 0) {
     return (
@@ -50,7 +51,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
   }
 
   const rows: RowDef[] = [
-    { label: t.compare.price, better: "low", cells: items.map((x) => ({ text: formatInr(x.priceInr), score: x.priceInr })) },
+    ...(showPrices ? [{ label: t.compare.price, better: "low" as const, cells: items.map((x) => ({ text: formatInr(x.priceInr), score: x.priceInr })) }] : []),
     {
       label: t.grade.label,
       better: "high",
@@ -108,7 +109,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
       label: t.phone.priceNew,
       better: "high",
       cells: items.map((x) => {
-        const saving = x.launchPriceInr && x.launchPriceInr > x.priceInr ? x.launchPriceInr - x.priceInr : null;
+        const saving = showPrices && x.launchPriceInr && x.launchPriceInr > x.priceInr ? x.launchPriceInr - x.priceInr : null;
         return { text: x.launchPriceInr ? `${formatInr(x.launchPriceInr)}${saving ? ` (−${formatInr(saving)})` : ""}` : "—", score: saving };
       }),
     },
@@ -139,7 +140,7 @@ export default async function ComparePage({ searchParams }: { searchParams: Prom
                   <p className="mt-2 line-clamp-2 font-display text-[0.92rem] font-semibold leading-snug sm:text-base">{item.name}</p>
                   <p className="text-xs text-muted sm:text-sm">{variantLabel(item.ramGb, item.storageGb)}</p>
                 </Link>
-                <PriceTag value={item.priceInr} className="mt-2 !text-[0.9rem] sm:!text-[1.05rem]" />
+                <PriceTag value={showPrices ? item.priceInr : null} askLabel={t.card.askPrice} className="mt-2 !text-[0.9rem] sm:!text-[1.05rem]" />
                 <Link
                   href={others.length ? `/compare?ids=${others.join(",")}` : "/compare?ids="}
                   className="absolute right-1 top-1 grid h-8 w-8 place-items-center rounded-full bg-surface/90 text-muted shadow-sm hover:text-fg"

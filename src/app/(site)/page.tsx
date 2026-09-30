@@ -55,21 +55,23 @@ export default async function HomePage() {
               {t.action.search}
             </button>
           </form>
-          <ul className="mt-4 flex flex-wrap gap-2" aria-label={t.home.budget}>
-            {budgets.map((b) => (
-              <li key={b.href}>
-                <Link
-                  href={b.href}
-                  className="inline-flex h-9 items-center rounded-full border border-line-strong bg-surface px-3.5 text-sm font-medium hover:border-brand hover:text-brand-ink"
-                >
-                  {b.label}
-                </Link>
-              </li>
-            ))}
-          </ul>
+          {settings.showPrices ? (
+            <ul className="mt-4 flex flex-wrap gap-2" aria-label={t.home.budget}>
+              {budgets.map((b) => (
+                <li key={b.href}>
+                  <Link
+                    href={b.href}
+                    className="inline-flex h-9 items-center rounded-full border border-line-strong bg-surface px-3.5 text-sm font-medium hover:border-brand hover:text-brand-ink"
+                  >
+                    {b.label}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
         </div>
 
-        {featured ? <FeaturedPhone item={featured} t={t} lang={lang} /> : null}
+        {featured ? <FeaturedPhone item={featured} t={t} lang={lang} showPrices={settings.showPrices} /> : null}
       </section>
 
       {/* Trust */}
@@ -205,8 +207,8 @@ export default async function HomePage() {
   );
 }
 
-function FeaturedPhone({ item, t, lang }: { item: ListingCardData; t: Dictionary; lang: "en" | "te" }) {
-  const saving = item.launchPriceInr && item.launchPriceInr > item.priceInr ? item.launchPriceInr - item.priceInr : null;
+function FeaturedPhone({ item, t, lang, showPrices }: { item: ListingCardData; t: Dictionary; lang: "en" | "te"; showPrices: boolean }) {
+  const saving = showPrices && item.launchPriceInr && item.launchPriceInr > item.priceInr ? item.launchPriceInr - item.priceInr : null;
   return (
     <Link
       href={`/phones/${item.slug}`}
@@ -219,7 +221,7 @@ function FeaturedPhone({ item, t, lang }: { item: ListingCardData; t: Dictionary
       </div>
       <div className="relative mt-3 aspect-[5/4] overflow-hidden rounded-[20px] bg-surface-2">
         <PhoneImage photo={item.photo} alt={item.name} priority fit="cover" sizes="(min-width: 768px) 40vw, 90vw" className="h-full w-full" />
-        <PriceTag value={item.priceInr} size="lg" className="absolute bottom-4 left-4" />
+        <PriceTag value={showPrices ? item.priceInr : null} askLabel={t.card.askPrice} size="lg" className="absolute bottom-4 left-4" />
       </div>
       <div className="mt-4 flex items-start justify-between gap-3">
         <div>

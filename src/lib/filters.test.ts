@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { EMPTY_FILTERS, activeFilterCount, browseHref, filtersToSearchParams, parseFilters } from "./filters";
+import { EMPTY_FILTERS, activeFilterCount, browseHref, filtersToSearchParams, parseFilters, withoutPriceFilters } from "./filters";
+import { withoutPriceTags } from "./tags";
 
 describe("parseFilters", () => {
   it("returns empty filters for an empty URL", () => {
@@ -68,5 +69,23 @@ describe("building URLs", () => {
   it("counts active filters, not search text or sort", () => {
     const f = parseFilters({ q: "a54", brand: ["Samsung"], grade: ["A", "B"], sort: "price_desc", "5g": "1" });
     expect(activeFilterCount(f)).toBe(4);
+  });
+});
+
+describe("withoutPriceFilters", () => {
+  it("drops price filters, price sorting and price tags when the shop hides prices", () => {
+    const filters = parseFilters({ price: "under-10k", sort: "price_asc", tag: "under-20k", brand: "Samsung" });
+    const hidden = withoutPriceFilters(filters);
+    expect(hidden.price).toBeNull();
+    expect(hidden.sort).toBe("newest");
+    expect(hidden.tag).toBeNull();
+    expect(hidden.brands).toEqual(["Samsung"]);
+    const kept = withoutPriceFilters(parseFilters({ sort: "battery", tag: "gaming" }));
+    expect(kept.sort).toBe("battery");
+    expect(kept.tag).toBe("gaming");
+  });
+
+  it("removes price tags from a tag list", () => {
+    expect(withoutPriceTags(["just-arrived", "price-dropped", "under-10k", "5g"])).toEqual(["just-arrived", "5g"]);
   });
 });

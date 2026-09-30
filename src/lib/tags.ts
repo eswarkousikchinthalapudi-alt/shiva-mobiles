@@ -13,6 +13,13 @@ export type TagKey = AutoTag | ShopTag;
 
 export const ALL_TAGS: readonly TagKey[] = [...AUTO_TAGS, ...SHOP_TAGS];
 
+/** Tags that give away the selling price; left off when the shop hides prices. */
+export const PRICE_TAGS: readonly TagKey[] = ["price-dropped", "under-10k", "under-20k"];
+
+export function withoutPriceTags<T extends string>(tags: T[]): T[] {
+  return tags.filter((tag) => !(PRICE_TAGS as readonly string[]).includes(tag));
+}
+
 export function isTagKey(value: string): value is TagKey {
   return (ALL_TAGS as readonly string[]).includes(value);
 }

@@ -71,7 +71,7 @@ function Check({ checked, onChange, children }: { checked: boolean; onChange: ()
   );
 }
 
-function Fields({ value, onChange, brands }: { value: Filters; onChange: (next: Filters) => void; brands: BrandOption[] }) {
+function Fields({ value, onChange, brands, showPrices }: { value: Filters; onChange: (next: Filters) => void; brands: BrandOption[]; showPrices: boolean }) {
   const t = useT();
   const priceLabels: Record<PricePreset, string> = {
     "under-10k": t.browse.priceUnder10,
@@ -92,15 +92,17 @@ function Fields({ value, onChange, brands }: { value: Filters; onChange: (next: 
           </Pill>
         </div>
       </Group>
-      <Group title={t.browse.price}>
-        <div className="flex flex-wrap gap-2">
-          {(Object.keys(PRICE_PRESETS) as PricePreset[]).map((preset) => (
-            <Pill key={preset} active={value.price === preset} onClick={() => set({ price: value.price === preset ? null : preset })}>
-              {priceLabels[preset]}
-            </Pill>
-          ))}
-        </div>
-      </Group>
+      {showPrices ? (
+        <Group title={t.browse.price}>
+          <div className="flex flex-wrap gap-2">
+            {(Object.keys(PRICE_PRESETS) as PricePreset[]).map((preset) => (
+              <Pill key={preset} active={value.price === preset} onClick={() => set({ price: value.price === preset ? null : preset })}>
+                {priceLabels[preset]}
+              </Pill>
+            ))}
+          </div>
+        </Group>
+      ) : null}
       {brands.length > 0 ? (
         <Group title={t.browse.brand}>
           <div className="grid grid-cols-1">
@@ -167,7 +169,7 @@ function Fields({ value, onChange, brands }: { value: Filters; onChange: (next: 
 }
 
 /** Desktop: filters apply as soon as they change. */
-export function FilterSidebar({ filters, brands }: { filters: Filters; brands: BrandOption[] }) {
+export function FilterSidebar({ filters, brands, showPrices = true }: { filters: Filters; brands: BrandOption[]; showPrices?: boolean }) {
   const t = useT();
   const { apply, pending } = useApply();
   const count = activeFilterCount(filters);
@@ -185,13 +187,13 @@ export function FilterSidebar({ filters, brands }: { filters: Filters; brands: B
           </button>
         ) : null}
       </div>
-      <Fields value={filters} onChange={apply} brands={brands} />
+      <Fields value={filters} onChange={apply} brands={brands} showPrices={showPrices} />
     </div>
   );
 }
 
 /** Mobile: filters open in a bottom sheet and apply on "Show results". */
-export function FilterSheetButton({ filters, brands }: { filters: Filters; brands: BrandOption[] }) {
+export function FilterSheetButton({ filters, brands, showPrices = true }: { filters: Filters; brands: BrandOption[]; showPrices?: boolean }) {
   const t = useT();
   const ref = useRef<HTMLDialogElement>(null);
   const [draft, setDraft] = useState(filters);
@@ -226,7 +228,7 @@ export function FilterSheetButton({ filters, brands }: { filters: Filters; brand
             </button>
           </div>
           <div className="flex-1 overflow-y-auto px-5">
-            <Fields value={draft} onChange={setDraft} brands={brands} />
+            <Fields value={draft} onChange={setDraft} brands={brands} showPrices={showPrices} />
           </div>
           <div className="flex gap-3 border-t border-line px-5 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <button type="button" className={buttonClass("ghost", "lg")} onClick={() => setDraft({ ...EMPTY_FILTERS, q: filters.q, sort: filters.sort })}>
@@ -250,7 +252,7 @@ export function FilterSheetButton({ filters, brands }: { filters: Filters; brand
   );
 }
 
-export function SortSelect({ filters }: { filters: Filters }) {
+export function SortSelect({ filters, showPrices = true }: { filters: Filters; showPrices?: boolean }) {
   const t = useT();
   const { apply } = useApply();
   return (
@@ -262,10 +264,10 @@ export function SortSelect({ filters }: { filters: Filters }) {
         className="h-11 w-full appearance-none rounded-[12px] border border-line-strong bg-surface pl-3.5 pr-9 text-[0.95rem] font-medium lg:w-56"
       >
         <option value="newest">{t.browse.sortNewest}</option>
-        <option value="price_asc">{t.browse.sortPriceAsc}</option>
-        <option value="price_desc">{t.browse.sortPriceDesc}</option>
+        {showPrices ? <option value="price_asc">{t.browse.sortPriceAsc}</option> : null}
+        {showPrices ? <option value="price_desc">{t.browse.sortPriceDesc}</option> : null}
         <option value="battery">{t.browse.sortBattery}</option>
-        <option value="value">{t.browse.sortValue}</option>
+        {showPrices ? <option value="value">{t.browse.sortValue}</option> : null}
       </select>
       <svg viewBox="0 0 20 20" className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted" aria-hidden>
         <path d="M5 8l5 5 5-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />

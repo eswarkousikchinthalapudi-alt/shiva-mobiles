@@ -44,6 +44,7 @@ const settingsSchema = z.object({
       (v) => v === "" || /^https:\/\/[a-z0-9.-]+(:\d+)?\/?$/i.test(v) || /^http:\/\/localhost(:\d+)?\/?$/.test(v),
       "Website address should look like https://shivamobiles.in",
     ),
+  showPrices: z.boolean(),
   defaultWarrantyMonths: z.number().int().min(0).max(24),
   retentionDays: z.number().int().min(30, "Keep requests for at least 30 days.").max(3650),
 });

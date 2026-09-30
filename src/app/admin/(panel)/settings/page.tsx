@@ -27,6 +27,7 @@ export default async function SettingsPage() {
           googleReviewUrl: s.googleReviewUrl,
           gstin: s.gstin,
           siteUrl: s.siteUrl,
+          showPrices: s.showPrices,
           defaultWarrantyMonths: s.defaultWarrantyMonths,
           retentionDays: s.retentionDays,
         }}

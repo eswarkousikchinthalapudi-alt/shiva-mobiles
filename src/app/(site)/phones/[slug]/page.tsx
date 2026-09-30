@@ -6,6 +6,7 @@ import { after } from "next/server";
 import { cache } from "react";
 import { getT } from "@/i18n/server";
 import { formatDate, formatInr, telLink, whatsappLink } from "@/lib/format";
+import { withoutPriceTags } from "@/lib/tags";
 import { listingBySlug, recordView, similarListings, type ListingDetail } from "@/lib/listings";
 import { PHONE_TESTS } from "@/lib/phone-tests";
 import { getShopSettings, getSiteUrl } from "@/lib/settings";
@@ -27,10 +28,10 @@ const getListing = cache((slug: string) => listingBySlug(slug));
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { slug } = await params;
-  const item = await getListing(slug);
+  const [item, settings] = await Promise.all([getListing(slug), getShopSettings()]);
   if (!item) return { title: "Phone not found" };
   const variant = variantLabel(item.ramGb, item.storageGb);
-  const title = `${item.name} ${variant} — ${formatInr(item.priceInr)}`;
+  const title = settings.showPrices ? `${item.name} ${variant} — ${formatInr(item.priceInr)}` : `${item.name} ${variant}`;
   const battery = item.batteryHealth ? `Battery ${item.batteryHealth}%. ` : "";
   const description = `Grade ${item.grade} second-hand ${item.name} (${variant}${item.color ? `, ${item.color}` : ""}). ${battery}IMEI verified, ${item.testsPassed}/${item.testsTotal} tests passed, ${item.warrantyMonths} months shop warranty.`;
   return {
@@ -183,7 +184,9 @@ export default async function PhonePage({ params, searchParams }: Props) {
   const message = t.phone.enquiryMessage(settings.shopName, fullTitle, item.code, url);
   const whatsappHref = settings.whatsapp && item.status !== "sold" ? whatsappLink(settings.whatsapp, message) : null;
   const telHref = settings.phone ? telLink(settings.phone) : null;
-  const saving = item.launchPriceInr && item.launchPriceInr > item.priceInr ? item.launchPriceInr - item.priceInr : null;
+  const showPrices = settings.showPrices;
+  const saving = showPrices && item.launchPriceInr && item.launchPriceInr > item.priceInr ? item.launchPriceInr - item.priceInr : null;
+  const tags = showPrices ? item.tags : withoutPriceTags(item.tags);
   const notes = lang === "te" && item.notesTe ? item.notesTe : item.notesEn;
 
   const jsonLd = {
@@ -197,8 +200,7 @@ export default async function PhonePage({ params, searchParams }: Props) {
     offers: {
       "@type": "Offer",
       url,
-      priceCurrency: "INR",
-      price: item.priceInr,
+      ...(showPrices ? { priceCurrency: "INR", price: item.priceInr } : {}),
       itemCondition: "https://schema.org/UsedCondition",
       availability:
         item.status === "available"
@@ -226,12 +228,12 @@ export default async function PhonePage({ params, searchParams }: Props) {
               {item.color ? `, ${item.color}` : ""}
             </p>
             <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2">
-              <PriceTag value={item.priceInr} size="lg" />
+              <PriceTag value={showPrices ? item.priceInr : null} askLabel={t.card.askPrice} size="lg" />
               {saving ? <p className="text-[0.95rem] font-medium text-ok">{t.phone.youSave(formatInr(saving))}</p> : null}
             </div>
-            {item.tags.length ? (
+            {tags.length ? (
               <ul className="mt-4 flex flex-wrap gap-1.5">
-                {item.tags.slice(0, 5).map((tag) => (
+                {tags.slice(0, 5).map((tag) => (
                   <li key={tag} className="rounded-md bg-surface-3 px-2 py-1 text-xs font-medium">
                     {t.tag[tag]}
                   </li>
@@ -252,7 +254,7 @@ export default async function PhonePage({ params, searchParams }: Props) {
           <ContactButtons listingId={item.id} whatsappHref={whatsappHref} telHref={telHref} className="hidden sm:flex" />
           <div className="flex flex-wrap gap-2">
             {item.status !== "sold" ? <CompareToggle code={item.code} size="md" /> : null}
-            <ShareButton url={url} title={fullTitle} text={`${fullTitle} — ${formatInr(item.priceInr)}`} />
+            <ShareButton url={url} title={fullTitle} text={showPrices ? `${fullTitle} — ${formatInr(item.priceInr)}` : fullTitle} />
           </div>
 
           <HealthReport item={item} t={t} lang={lang} />
@@ -291,7 +293,7 @@ export default async function PhonePage({ params, searchParams }: Props) {
           <div className="flex items-center gap-2">
             <div className="min-w-0 pr-1">
               <p className="truncate text-xs text-muted">{item.name}</p>
-              <p className="font-display text-lg font-bold tabular">{formatInr(item.priceInr)}</p>
+              <p className="font-display text-lg font-bold tabular">{showPrices ? formatInr(item.priceInr) : t.card.askPrice}</p>
             </div>
             <ContactButtons listingId={item.id} whatsappHref={whatsappHref} telHref={telHref} size="md" compact className="flex-1 justify-end" />
           </div>

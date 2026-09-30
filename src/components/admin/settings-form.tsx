@@ -6,7 +6,7 @@ import { buttonClass } from "@/components/ui/button";
 import { cn } from "@/components/ui/cn";
 import { Alert, Card, Field, inputClass } from "./ui";
 
-type TextKey = Exclude<keyof SettingsInput, "defaultWarrantyMonths" | "retentionDays">;
+type TextKey = Exclude<keyof SettingsInput, "defaultWarrantyMonths" | "retentionDays" | "showPrices">;
 
 export function SettingsForm({ initial }: { initial: SettingsInput }) {
   const [v, setV] = useState<SettingsInput>(initial);
@@ -77,6 +77,24 @@ export function SettingsForm({ initial }: { initial: SettingsInput }) {
             hint: "From your Google Business Profile: “Ask for reviews”. Sent to buyers after a sale.",
           })}
         </div>
+      </Card>
+
+      <Card title="Prices">
+        <label className="flex cursor-pointer items-start gap-3 rounded-2xl border-2 border-line-strong bg-surface p-3 has-[:checked]:border-brand has-[:checked]:bg-brand-soft">
+          <input
+            type="checkbox"
+            checked={v.showPrices}
+            onChange={(e) => setV({ ...v, showPrices: e.target.checked })}
+            className="mt-0.5 h-5 w-5 accent-[var(--brand)]"
+          />
+          <span>
+            <span className="block font-semibold">Show selling prices on the website</span>
+            <span className="block text-sm text-muted">
+              When off, visitors see “Ask for price” on the website, WhatsApp posters and captions, and contact you instead. Prices, price filters and “you
+              save” lines are hidden. Bills and the admin panel still show prices.
+            </span>
+          </span>
+        </label>
       </Card>
 
       <Card title="Bills and website">
